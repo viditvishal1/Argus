@@ -130,6 +130,28 @@ export async function runConnectors(ids: string[]): Promise<Item[]> {
     .sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
 }
 
+/**
+ * Like runConnectors but with a hard time budget per connector: whatever is
+ * cached or fast makes this response; cold slow sources keep fetching in the
+ * background and are picked up from cache on the next request.
+ */
+export async function runConnectorsWithBudget(
+  ids: string[],
+  budgetMs = 4000,
+): Promise<Item[]> {
+  const results = await Promise.all(
+    ids.map((id) =>
+      Promise.race([
+        runConnector(id).catch(() => [] as Item[]),
+        new Promise<Item[]>((resolve) => setTimeout(() => resolve([]), budgetMs)),
+      ]),
+    ),
+  );
+  return results
+    .flat()
+    .sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+}
+
 export function connectorStatuses(): ConnectorStatus[] {
   // Include registered-but-never-run connectors so the settings page is complete.
   const out: ConnectorStatus[] = [];

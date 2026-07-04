@@ -14,8 +14,7 @@ import { ReaderPane } from "@/components/ReaderPane";
 interface SearchResponse {
   grouped: Record<string, Item[]>;
   total: number;
-  briefing: string | null;
-  briefingError: string | null;
+  aiEnabled?: boolean;
   fetchedAt: string;
 }
 
@@ -23,18 +22,41 @@ function SearchInner() {
   const sp = useSearchParams();
   const q = sp.get("q") ?? "";
   const [res, setRes] = useState<SearchResponse | null>(null);
+  const [briefing, setBriefing] = useState<string | null>(null);
+  const [briefingError, setBriefingError] = useState<string | null>(null);
+  const [briefingLoading, setBriefingLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Item | null>(null);
 
   useEffect(() => {
     if (!q) return;
+    let alive = true;
     setLoading(true);
     setRes(null);
+    setBriefing(null);
+    setBriefingError(null);
     setSelected(null);
-    fetch(`/api/search?q=${encodeURIComponent(q)}&briefing=1`)
+    // Results first — never blocked on the AI call.
+    fetch(`/api/search?q=${encodeURIComponent(q)}`)
       .then((r) => r.json())
-      .then(setRes)
-      .finally(() => setLoading(false));
+      .then((d: SearchResponse) => {
+        if (!alive) return;
+        setRes(d);
+        setLoading(false);
+        if (d.total > 0 && d.aiEnabled) {
+          setBriefingLoading(true);
+          fetch(`/api/search?q=${encodeURIComponent(q)}&mode=briefing`)
+            .then((r) => r.json())
+            .then((b) => {
+              if (!alive) return;
+              setBriefing(b.briefing);
+              setBriefingError(b.briefingError);
+            })
+            .finally(() => alive && setBriefingLoading(false));
+        }
+      })
+      .catch(() => alive && setLoading(false));
+    return () => { alive = false; };
   }, [q]);
 
   if (!q) return <p className="text-sm text-ink-dim">Type a query in the search bar above.</p>;
@@ -47,21 +69,26 @@ function SearchInner() {
 
       {loading && (
         <div className="flex items-center gap-2 py-8 text-sm text-ink-dim">
-          <LoaderCircle className="h-4 w-4 animate-spin" /> Searching all modules and generating briefing…
+          <LoaderCircle className="h-4 w-4 animate-spin" /> Searching all modules…
         </div>
       )}
 
-      {res?.briefing && (
+      {briefingLoading && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-violet-900/60 bg-violet-950/20 p-3 text-xs text-violet-300">
+          <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> Generating AI briefing from the results…
+        </div>
+      )}
+      {briefing && (
         <div className="mb-4 rounded-lg border border-violet-900/60 bg-violet-950/20 p-4">
           <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-violet-300">
             <Sparkles className="h-3.5 w-3.5" /> AI briefing — generated from the sources below
           </div>
-          <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#cfd8e3]">{res.briefing}</p>
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-[#cfd8e3]">{briefing}</p>
         </div>
       )}
-      {res?.briefingError && (
+      {briefingError && (
         <div className="mb-4 rounded-md border border-line bg-panel px-3 py-2 text-xs text-ink-dim">
-          AI briefing unavailable: {res.briefingError}
+          AI briefing unavailable: {briefingError}
         </div>
       )}
 

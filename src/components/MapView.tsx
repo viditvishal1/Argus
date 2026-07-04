@@ -1,12 +1,14 @@
 "use client";
 
-// Shared MapLibre map — used by Earth View, Aviation, Maritime and City Twin.
-// Free CARTO dark basemap over OpenStreetMap data; each layer is a GeoJSON
-// circle layer with its own accent color and click-to-detail popups handled
-// by the parent via onSelect.
+// Shared map for Earth View, Aviation, Maritime and City Twin — now a real
+// "mission control" map: switchable basemaps (dark / satellite / streets /
+// topo), a 3D globe projection toggle (MapLibre v5), 3D terrain from the free
+// AWS terrarium DEM tiles, and heading-rotated aircraft icons. All tile
+// sources are free and keyless (CARTO, Esri World Imagery, OSM, OpenTopoMap).
 
-import { useEffect, useRef } from "react";
-import maplibregl, { Map as MlMap } from "maplibre-gl";
+import { useCallback, useEffect, useRef, useState } from "react";
+import maplibregl, { Map as MlMap, StyleSpecification } from "maplibre-gl";
+import { Earth, Layers, Mountain } from "lucide-react";
 import type { Item } from "@/lib/types";
 
 export interface MapLayer {
@@ -14,23 +16,99 @@ export interface MapLayer {
   color: string;
   items: Item[];
   radius?: number;
+  icon?: "plane"; // symbol layer with per-feature rotation instead of circles
 }
 
-const STYLE: maplibregl.StyleSpecification = {
-  version: 8,
-  sources: {
-    carto: {
-      type: "raster",
-      tiles: [
-        "https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        "https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-        "https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png",
-      ],
-      tileSize: 256,
-      attribution: "© OpenStreetMap contributors © CARTO",
-    },
+export type BasemapId = "dark" | "satellite" | "streets" | "topo";
+
+const BASEMAPS: Record<BasemapId, { label: string; build: () => StyleSpecification }> = {
+  dark: {
+    label: "Dark",
+    build: () => ({
+      version: 8,
+      sources: {
+        base: {
+          type: "raster",
+          tiles: ["a", "b", "c"].map(
+            (s) => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png`,
+          ),
+          tileSize: 256,
+          attribution: "© OpenStreetMap contributors © CARTO",
+        },
+      },
+      layers: [{ id: "base", type: "raster", source: "base" }],
+    }),
   },
-  layers: [{ id: "carto", type: "raster", source: "carto" }],
+  satellite: {
+    label: "Satellite",
+    build: () => ({
+      version: 8,
+      sources: {
+        base: {
+          type: "raster",
+          tiles: [
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          ],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "Imagery © Esri, Maxar, Earthstar Geographics",
+        },
+        labels: {
+          type: "raster",
+          tiles: ["a", "b", "c"].map(
+            (s) => `https://${s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}.png`,
+          ),
+          tileSize: 256,
+          attribution: "© OpenStreetMap contributors © CARTO",
+        },
+      },
+      layers: [
+        { id: "base", type: "raster", source: "base" },
+        { id: "labels", type: "raster", source: "labels", paint: { "raster-opacity": 0.9 } },
+      ],
+    }),
+  },
+  streets: {
+    label: "Streets",
+    build: () => ({
+      version: 8,
+      sources: {
+        base: {
+          type: "raster",
+          tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+          tileSize: 256,
+          maxzoom: 19,
+          attribution: "© OpenStreetMap contributors",
+        },
+      },
+      layers: [{ id: "base", type: "raster", source: "base" }],
+    }),
+  },
+  topo: {
+    label: "Terrain",
+    build: () => ({
+      version: 8,
+      sources: {
+        base: {
+          type: "raster",
+          tiles: ["a", "b", "c"].map((s) => `https://${s}.tile.opentopomap.org/{z}/{x}/{y}.png`),
+          tileSize: 256,
+          maxzoom: 17,
+          attribution: "© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)",
+        },
+      },
+      layers: [{ id: "base", type: "raster", source: "base" }],
+    }),
+  },
+};
+
+const DEM_SOURCE = {
+  type: "raster-dem" as const,
+  tiles: ["https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"],
+  tileSize: 256,
+  encoding: "terrarium" as const,
+  maxzoom: 15,
+  attribution: "Terrain: Mapzen/AWS Open Data",
 };
 
 function toGeoJSON(items: Item[]): GeoJSON.FeatureCollection {
@@ -41,94 +119,239 @@ function toGeoJSON(items: Item[]): GeoJSON.FeatureCollection {
       .map((i) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [i.lon!, i.lat!] },
-        properties: { id: i.id, title: i.title, sev: i.severity ?? 0 },
+        properties: {
+          id: i.id,
+          title: i.title,
+          sev: i.severity ?? 0,
+          heading: (i.extra?.heading as number) ?? 0,
+        },
       })),
   };
 }
 
+/** Draw a small plane silhouette pointing north, tinted per layer color. */
+function planeImage(color: string): ImageData {
+  const s = 36;
+  const c = document.createElement("canvas");
+  c.width = s;
+  c.height = s;
+  const ctx = c.getContext("2d")!;
+  ctx.translate(s / 2, s / 2);
+  ctx.scale(s / 24, s / 24);
+  ctx.beginPath();
+  // fuselage + swept wings + tail, nose at top (0° = north)
+  ctx.moveTo(0, -10);
+  ctx.bezierCurveTo(1.2, -9, 1.4, -6, 1.4, -3.5);
+  ctx.lineTo(10, 1.5);
+  ctx.lineTo(10, 3.5);
+  ctx.lineTo(1.4, 1);
+  ctx.lineTo(1.2, 6);
+  ctx.lineTo(4, 8.5);
+  ctx.lineTo(4, 10);
+  ctx.lineTo(0, 9);
+  ctx.lineTo(-4, 10);
+  ctx.lineTo(-4, 8.5);
+  ctx.lineTo(-1.2, 6);
+  ctx.lineTo(-1.4, 1);
+  ctx.lineTo(-10, 3.5);
+  ctx.lineTo(-10, 1.5);
+  ctx.lineTo(-1.4, -3.5);
+  ctx.bezierCurveTo(-1.4, -6, -1.2, -9, 0, -10);
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,0.65)";
+  ctx.lineWidth = 0.8;
+  ctx.stroke();
+  return ctx.getImageData(0, 0, s, s);
+}
+
 export function MapView({
   layers, onSelect, center = [10, 25], zoom = 1.6, className,
+  defaultBasemap = "dark", defaultGlobe = false,
 }: {
   layers: MapLayer[];
   onSelect?: (id: string) => void;
   center?: [number, number];
   zoom?: number;
   className?: string;
+  defaultBasemap?: BasemapId;
+  defaultGlobe?: boolean;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
-  const layersRef = useRef<Set<string>>(new Set());
+  const knownLayers = useRef<Set<string>>(new Set());
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
   const onSelectRef = useRef(onSelect);
   onSelectRef.current = onSelect;
+
+  const [basemap, setBasemap] = useState<BasemapId>(defaultBasemap);
+  const [globe, setGlobe] = useState(defaultGlobe);
+  const [terrain, setTerrain] = useState(false);
+  const globeRef = useRef(globe);
+  globeRef.current = globe;
+  const terrainRef = useRef(terrain);
+  terrainRef.current = terrain;
+
+  /** (Re)apply data layers + projection + terrain onto the current style. */
+  const applyOverlays = useCallback((map: MlMap) => {
+    map.setProjection({ type: globeRef.current ? "globe" : "mercator" });
+
+    if (!map.getSource("dem")) map.addSource("dem", DEM_SOURCE);
+    map.setTerrain(terrainRef.current ? { source: "dem", exaggeration: 1.4 } : null);
+
+    for (const layer of layersRef.current) {
+      const srcId = `src-${layer.id}`;
+      const data = toGeoJSON(layer.items);
+      const existing = map.getSource(srcId) as maplibregl.GeoJSONSource | undefined;
+      if (existing) {
+        existing.setData(data);
+        continue;
+      }
+      map.addSource(srcId, { type: "geojson", data });
+      if (layer.icon === "plane") {
+        const imgId = `plane-${layer.id}`;
+        if (!map.hasImage(imgId)) map.addImage(imgId, planeImage(layer.color));
+        map.addLayer({
+          id: `lyr-${layer.id}`,
+          type: "symbol",
+          source: srcId,
+          layout: {
+            "icon-image": imgId,
+            "icon-size": 0.62,
+            "icon-rotate": ["get", "heading"],
+            "icon-rotation-alignment": "map",
+            "icon-allow-overlap": true,
+          },
+        });
+      } else {
+        map.addLayer({
+          id: `lyr-${layer.id}`,
+          type: "circle",
+          source: srcId,
+          paint: {
+            "circle-radius": ["+", layer.radius ?? 4, ["*", 0.7, ["coalesce", ["get", "sev"], 0]]],
+            "circle-color": layer.color,
+            "circle-opacity": 0.8,
+            "circle-stroke-width": 1,
+            "circle-stroke-color": "#0a0d12",
+          },
+        });
+      }
+      map.on("click", `lyr-${layer.id}`, (e) => {
+        const f = e.features?.[0];
+        if (!f) return;
+        new maplibregl.Popup({ closeButton: false, offset: 8 })
+          .setLngLat(e.lngLat)
+          .setText(String(f.properties?.title ?? ""))
+          .addTo(map);
+        if (f.properties?.id) onSelectRef.current?.(String(f.properties.id));
+      });
+      map.on("mouseenter", `lyr-${layer.id}`, () => { map.getCanvas().style.cursor = "pointer"; });
+      map.on("mouseleave", `lyr-${layer.id}`, () => { map.getCanvas().style.cursor = ""; });
+      knownLayers.current.add(layer.id);
+    }
+
+    // Drop layers that were toggled off.
+    for (const known of [...knownLayers.current]) {
+      if (!layersRef.current.some((l) => l.id === known)) {
+        if (map.getLayer(`lyr-${known}`)) map.removeLayer(`lyr-${known}`);
+        if (map.getSource(`src-${known}`)) map.removeSource(`src-${known}`);
+        knownLayers.current.delete(known);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (!el.current || mapRef.current) return;
     const map = new maplibregl.Map({
       container: el.current,
-      style: STYLE,
+      style: BASEMAPS[defaultBasemap].build(),
       center,
       zoom,
       attributionControl: { compact: true },
+      maxPitch: 75,
     });
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+    map.addControl(new maplibregl.NavigationControl({ showCompass: true }), "top-right");
+    map.on("load", () => applyOverlays(map));
     mapRef.current = map;
-    return () => { map.remove(); mapRef.current = null; layersRef.current.clear(); };
+    return () => { map.remove(); mapRef.current = null; knownLayers.current.clear(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Data layers changed.
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    const apply = () => {
-      for (const layer of layers) {
-        const srcId = `src-${layer.id}`;
-        const data = toGeoJSON(layer.items);
-        const existing = map.getSource(srcId) as maplibregl.GeoJSONSource | undefined;
-        if (existing) {
-          existing.setData(data);
-        } else {
-          map.addSource(srcId, { type: "geojson", data });
-          map.addLayer({
-            id: `lyr-${layer.id}`,
-            type: "circle",
-            source: srcId,
-            paint: {
-              "circle-radius": [
-                "+", layer.radius ?? 4,
-                ["*", 0.7, ["coalesce", ["get", "sev"], 0]],
-              ],
-              "circle-color": layer.color,
-              "circle-opacity": 0.75,
-              "circle-stroke-width": 1,
-              "circle-stroke-color": "#0a0d12",
-            },
-          });
-          map.on("click", `lyr-${layer.id}`, (e) => {
-            const f = e.features?.[0];
-            if (!f) return;
-            new maplibregl.Popup({ closeButton: false, offset: 8 })
-              .setLngLat(e.lngLat)
-              .setText(String(f.properties?.title ?? ""))
-              .addTo(map);
-            if (f.properties?.id) onSelectRef.current?.(String(f.properties.id));
-          });
-          map.on("mouseenter", `lyr-${layer.id}`, () => { map.getCanvas().style.cursor = "pointer"; });
-          map.on("mouseleave", `lyr-${layer.id}`, () => { map.getCanvas().style.cursor = ""; });
-          layersRef.current.add(layer.id);
-        }
-      }
-      // Remove layers that were toggled off.
-      for (const known of [...layersRef.current]) {
-        if (!layers.some((l) => l.id === known)) {
-          if (map.getLayer(`lyr-${known}`)) map.removeLayer(`lyr-${known}`);
-          if (map.getSource(`src-${known}`)) map.removeSource(`src-${known}`);
-          layersRef.current.delete(known);
-        }
-      }
-    };
-    if (map.isStyleLoaded()) apply();
-    else map.once("load", apply);
-  }, [layers]);
+    if (map.isStyleLoaded()) applyOverlays(map);
+    else map.once("load", () => applyOverlays(map));
+  }, [layers, applyOverlays]);
 
-  return <div ref={el} className={className ?? "h-[calc(100vh-12rem)] w-full rounded-lg border border-line"} />;
+  // Projection / terrain toggles.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded()) return;
+    map.setProjection({ type: globe ? "globe" : "mercator" });
+    if (!map.getSource("dem")) map.addSource("dem", DEM_SOURCE);
+    map.setTerrain(terrain ? { source: "dem", exaggeration: 1.4 } : null);
+    if (terrain && map.getPitch() === 0) map.easeTo({ pitch: 55, duration: 800 });
+    if (!terrain && map.getPitch() > 0) map.easeTo({ pitch: 0, duration: 600 });
+  }, [globe, terrain]);
+
+  // Basemap switch: setStyle wipes sources/layers, so re-apply overlays after.
+  const switchBasemap = (id: BasemapId) => {
+    setBasemap(id);
+    const map = mapRef.current;
+    if (!map) return;
+    knownLayers.current.clear();
+    map.setStyle(BASEMAPS[id].build());
+    map.once("styledata", () => {
+      // styledata can fire before the style is usable for addSource; idle is safe.
+      map.once("idle", () => applyOverlays(map));
+      try { applyOverlays(map); } catch { /* retried on idle */ }
+    });
+  };
+
+  return (
+    <div className={`relative ${className ?? "h-[calc(100vh-12rem)] w-full"}`}>
+      <div ref={el} className="h-full w-full overflow-hidden rounded-lg border border-line" />
+      <div className="absolute left-2 top-2 z-10 flex flex-col gap-1.5">
+        <div className="flex items-center gap-1 rounded-lg border border-line bg-[#0a0d12]/85 p-1 backdrop-blur">
+          <Layers className="ml-1 h-3.5 w-3.5 text-ink-dim" />
+          {(Object.keys(BASEMAPS) as BasemapId[]).map((id) => (
+            <button
+              key={id}
+              onClick={() => switchBasemap(id)}
+              className={`rounded-md px-2 py-1 text-[11px] ${
+                basemap === id ? "bg-panel-2 text-ink" : "text-ink-dim hover:text-ink"
+              }`}
+            >
+              {BASEMAPS[id].label}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1 rounded-lg border border-line bg-[#0a0d12]/85 p-1 backdrop-blur">
+          <button
+            onClick={() => setGlobe((g) => !g)}
+            className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${
+              globe ? "bg-panel-2 text-accent" : "text-ink-dim hover:text-ink"
+            }`}
+            title="Toggle 3D globe projection"
+          >
+            <Earth className="h-3.5 w-3.5" /> Globe
+          </button>
+          <button
+            onClick={() => setTerrain((t) => !t)}
+            className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${
+              terrain ? "bg-panel-2 text-accent" : "text-ink-dim hover:text-ink"
+            }`}
+            title="Toggle 3D terrain (tilt the map to see relief)"
+          >
+            <Mountain className="h-3.5 w-3.5" /> 3D terrain
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }

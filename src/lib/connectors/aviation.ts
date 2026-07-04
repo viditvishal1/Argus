@@ -18,17 +18,18 @@ type OpenSkyState = [
   number | null, number | null, ...unknown[],
 ];
 
-export async function fetchFlights(region: string): Promise<Item[]> {
+async function fetchOpenSky(region: string): Promise<Item[]> {
   const r = REGIONS[region] ?? REGIONS.europe;
   const [lamin, lomin, lamax, lomax] = r.bbox;
   const url = `https://opensky-network.org/api/states/all?lamin=${lamin}&lomin=${lomin}&lamax=${lamax}&lomax=${lomax}`;
-  const res = await fetchWithTimeout(url, { timeoutMs: 15000 });
-  if (!res.ok) throw new Error(`OpenSky HTTP ${res.status} (anonymous tier is rate-limited — try again in a minute)`);
+  const res = await fetchWithTimeout(url, { timeoutMs: 12000 });
+  if (!res.ok) throw new Error(`OpenSky HTTP ${res.status}`);
   const data = await res.json();
   const states: OpenSkyState[] = data.states ?? [];
+  if (states.length === 0) throw new Error("OpenSky returned no aircraft");
   return states
     .filter((s) => s[5] != null && s[6] != null && !s[8])
-    .slice(0, 400)
+    .slice(0, 500)
     .map((s): Item => {
       const callsign = (s[1] ?? "").trim() || s[0].toUpperCase();
       const airlinePrefix = callsign.match(/^[A-Z]{3}/)?.[0];
@@ -58,6 +59,87 @@ export async function fetchFlights(region: string): Promise<Item[]> {
         },
       };
     });
+}
+
+interface AdsbAircraft {
+  hex: string; flight?: string; r?: string; t?: string;
+  lat?: number; lon?: number; alt_baro?: number | "ground";
+  gs?: number; track?: number;
+}
+
+/**
+ * Fallback: adsb.lol — a free, keyless community ADS-B aggregator that is not
+ * IP-throttled the way OpenSky's anonymous tier is (which matters on shared
+ * serverless egress IPs like Vercel's). Queries a radius around each region's
+ * center; several probe points approximate the region bbox.
+ */
+async function fetchAdsbLol(region: string): Promise<Item[]> {
+  const r = REGIONS[region] ?? REGIONS.europe;
+  const [lamin, lomin, lamax, lomax] = r.bbox;
+  const midLat = (lamin + lamax) / 2;
+  const midLon = (lomin + lomax) / 2;
+  const probes: [number, number][] = [
+    [midLat, midLon],
+    [(midLat + lamax) / 2, (midLon + lomin) / 2],
+    [(midLat + lamin) / 2, (midLon + lomax) / 2],
+  ];
+  const results = await Promise.allSettled(
+    probes.map(async ([lat, lon]) => {
+      const res = await fetchWithTimeout(
+        `https://api.adsb.lol/v2/lat/${lat.toFixed(2)}/lon/${lon.toFixed(2)}/dist/250`,
+        { timeoutMs: 10000 },
+      );
+      if (!res.ok) throw new Error(`adsb.lol HTTP ${res.status}`);
+      const data = await res.json();
+      return (data.ac ?? []) as AdsbAircraft[];
+    }),
+  );
+  const seen = new Map<string, AdsbAircraft>();
+  for (const p of results) {
+    if (p.status !== "fulfilled") continue;
+    for (const ac of p.value) {
+      if (ac.lat == null || ac.lon == null || ac.alt_baro === "ground") continue;
+      seen.set(ac.hex, ac);
+    }
+  }
+  if (seen.size === 0) throw new Error("adsb.lol returned no aircraft");
+  return [...seen.values()].slice(0, 600).map((ac): Item => {
+    const callsign = (ac.flight ?? "").trim() || ac.r || ac.hex.toUpperCase();
+    const airlinePrefix = callsign.match(/^[A-Z]{3}/)?.[0];
+    return {
+      id: `flight:${ac.hex}`,
+      module: "aviation",
+      connectorId: "opensky_states",
+      title: callsign,
+      summary: `${callsign}${ac.t ? ` · ${ac.t}` : ""} · alt ${typeof ac.alt_baro === "number" ? Math.round(ac.alt_baro) + " ft" : "n/a"}${ac.gs ? ` · ${Math.round(ac.gs * 1.852)} km/h` : ""}`,
+      source: "adsb.lol",
+      url: `https://globe.adsb.lol/?icao=${ac.hex}`,
+      timestamp: new Date().toISOString(),
+      lat: ac.lat,
+      lon: ac.lon,
+      tags: ["flight", r.label.toLowerCase()],
+      region: r.label,
+      entities: airlinePrefix
+        ? [{ name: airlinePrefix, type: "organization" }, { name: callsign, type: "aircraft" }]
+        : [{ name: callsign, type: "aircraft" }],
+      contentPolicy: "full_cache",
+      extra: {
+        icao24: ac.hex,
+        aircraftType: ac.t,
+        registration: ac.r,
+        altitudeFt: ac.alt_baro,
+        heading: ac.track ?? 0,
+      },
+    };
+  });
+}
+
+export async function fetchFlights(region: string): Promise<Item[]> {
+  try {
+    return await fetchOpenSky(region);
+  } catch {
+    return await fetchAdsbLol(region);
+  }
 }
 
 registerConnector(

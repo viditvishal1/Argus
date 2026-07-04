@@ -114,7 +114,8 @@ export default function CityPage() {
             layers={[{ id: "nearby", color: "#fb923c", items: nearby.map((x) => x.i) }]}
             center={[city.lon, city.lat]}
             zoom={5.5}
-            className="h-72 w-full rounded-lg border border-line"
+            className="h-72 w-full"
+            defaultBasemap="satellite"
             onSelect={(id) => setSelected(nearby.map((x) => x.i).find((i) => i.id === id) ?? null)}
           />
           <h2 className="mb-1.5 mt-3 text-xs font-semibold uppercase tracking-wide text-ink-dim">Nearby events</h2>

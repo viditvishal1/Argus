@@ -27,6 +27,7 @@ export {
   connectorStatuses,
   runConnector,
   runConnectors,
+  runConnectorsWithBudget,
 } from "./framework";
 
 import { NEWS_CONNECTOR_IDS } from "./news";

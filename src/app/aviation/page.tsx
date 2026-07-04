@@ -42,7 +42,7 @@ export default function AviationPage() {
   }, [region]);
 
   const layers = useMemo(
-    () => [{ id: "flights", color: "#60a5fa", items: flights, radius: 2.5 }],
+    () => [{ id: "flights", color: "#facc15", items: flights, icon: "plane" as const }],
     [flights],
   );
 
@@ -68,8 +68,8 @@ export default function AviationPage() {
           <MapView
             layers={layers}
             center={region.center}
-            zoom={3.4}
-            className="h-[46vh] w-full rounded-lg border border-line"
+            zoom={3.8}
+            className="h-[52vh] w-full"
             onSelect={(id) => setSelected(flights.find((f) => f.id === id) ?? null)}
           />
           {selected && (

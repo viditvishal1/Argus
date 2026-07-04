@@ -3,7 +3,7 @@
 // question, and hand only those to Gemini with a citation requirement.
 
 import { NextRequest, NextResponse } from "next/server";
-import { MODULE_CONNECTORS, runConnectors, searchGoogleNews } from "@/lib/connectors";
+import { MODULE_CONNECTORS, runConnectorsWithBudget, searchGoogleNews } from "@/lib/connectors";
 import { aiEnabled, askAnalyst } from "@/lib/ai";
 import type { Item } from "@/lib/types";
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   const ids = scope.flatMap((m) => MODULE_CONNECTORS[m]);
   const [cached, fresh] = await Promise.all([
-    runConnectors(ids),
+    runConnectorsWithBudget(ids, 6000),
     searchGoogleNews(question).catch(() => [] as Item[]),
   ]);
   const items = rank([...cached, ...fresh], question);

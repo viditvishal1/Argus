@@ -83,7 +83,8 @@ export default function EarthPage() {
         id: def.id,
         color: def.color,
         items: layerItems,
-        radius: def.id === "flights" ? 2.5 : def.id === "iss" ? 8 : 4,
+        radius: def.id === "iss" ? 8 : 4,
+        icon: def.id === "flights" ? ("plane" as const) : undefined,
       });
     }
     return out;
@@ -122,7 +123,13 @@ export default function EarthPage() {
       </div>
 
       <div className="relative">
-        <MapView layers={layers} onSelect={(id) => setSelected(allSelectable.find((i) => i.id === id) ?? null)} />
+        <MapView
+          layers={layers}
+          defaultBasemap="satellite"
+          defaultGlobe
+          zoom={2.2}
+          onSelect={(id) => setSelected(allSelectable.find((i) => i.id === id) ?? null)}
+        />
         {selected && (
           <div className="absolute right-3 top-3 z-20 max-h-[80%] w-96 max-w-[85%] overflow-hidden">
             <ReaderPane item={selected} onClose={() => setSelected(null)} />
