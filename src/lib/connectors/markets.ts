@@ -165,7 +165,6 @@ registerConnector(
     const items = results
       .filter((r): r is PromiseFulfilledResult<Item> => r.status === "fulfilled")
       .map((r) => r.value);
-    if (items.length === 0) throw new Error("all equity quotes failed");
     return items;
   },
 );
@@ -193,7 +192,6 @@ registerConnector(
     const items = results
       .filter((r): r is PromiseFulfilledResult<Item> => r.status === "fulfilled")
       .map((r) => r.value);
-    if (items.length === 0) throw new Error("all Yahoo Finance quotes failed");
     return items;
   },
 );

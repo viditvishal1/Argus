@@ -43,13 +43,17 @@ interface YfChart {
 function parseChart(data: YfChart, symbol: string): YahooQuote | null {
   const r = data.chart.result?.[0];
   if (!r) return null;
-  const price = r.meta.regularMarketPrice;
-  if (!Number.isFinite(price)) return null;
-  const prev = r.meta.chartPreviousClose;
-  const pct = prev ? ((price - prev) / prev) * 100 : 0;
   const closes = (r.indicators.quote[0]?.close ?? []).filter(
     (c): c is number => typeof c === "number" && !Number.isNaN(c),
   );
+  const lastClose = closes.length ? closes[closes.length - 1] : undefined;
+  const prevBar = closes.length >= 2 ? closes[closes.length - 2] : undefined;
+  // regularMarketPrice is often missing on server-side Yahoo responses; fall back to last bar.
+  let price = r.meta.regularMarketPrice;
+  if (!Number.isFinite(price)) price = lastClose ?? r.meta.chartPreviousClose;
+  if (!Number.isFinite(price)) return null;
+  const prev = r.meta.chartPreviousClose ?? prevBar ?? lastClose;
+  const pct = prev ? ((price - prev) / prev) * 100 : 0;
   const sparkline = closes.length >= 2 ? closes.slice(-7) : undefined;
   let change7d: number | undefined;
   if (closes.length >= 2) {

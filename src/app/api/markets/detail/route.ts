@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchWithTimeout } from "@/lib/connectors/framework";
+import { fetchStockHistory } from "@/lib/connectors/markets";
 import { fetchEquityQuote } from "@/lib/markets/equity";
 
 export const dynamic = "force-dynamic";
@@ -47,7 +48,26 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const q = await fetchEquityQuote(id);
+    let q = await fetchEquityQuote(id);
+    if (!q) {
+      const history = await fetchStockHistory(id, 7);
+      const last = history.at(-1);
+      const prev = history.length >= 2 ? history[history.length - 2] : undefined;
+      if (last) {
+        const pct = prev?.close ? ((last.close - prev.close) / prev.close) * 100 : 0;
+        q = {
+          symbol: id,
+          name: id,
+          price: last.close,
+          changePct: Math.round(pct * 100) / 100,
+          currency: id.endsWith(".NS") ? "INR" : "USD",
+          exchange: "—",
+          observedAt: last.date,
+          provider: "Yahoo Finance (history)",
+          dataDelay: "Derived from last close — delayed",
+        };
+      }
+    }
     if (!q) throw new Error("no equity quote data");
     return NextResponse.json({
       kind: "stock",

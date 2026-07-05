@@ -126,15 +126,7 @@ function AssetDetail({ item, onClose }: { item: Item; onClose: () => void }) {
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <span className="mono text-3xl font-semibold text-ink">
-            {price > 0 ? (
-              <>
-                {currency === "USD" ? "$" : ""}
-                {price.toLocaleString(undefined, {
-                  maximumFractionDigits: currency === "INR" ? 2 : price < 1 ? 6 : 2,
-                })}
-                {currency !== "USD" ? ` ${currency}` : ""}
-              </>
-            ) : "—"}
+            {price > 0 ? formatPrice(price, currency) : "—"}
           </span>
           {price > 0 && (
             <span className={`flex items-center gap-1 text-sm font-medium ${up ? "text-emerald-500" : "text-red-500"}`}>
@@ -246,6 +238,16 @@ function AssetDetail({ item, onClose }: { item: Item; onClose: () => void }) {
   );
 }
 
+function formatPrice(price: number, currency?: string): string {
+  const c = currency ?? "USD";
+  const opts = { maximumFractionDigits: price < 1 ? 4 : 2 };
+  if (c === "INR") return `₹${price.toLocaleString(undefined, opts)}`;
+  if (c === "USD") return `$${price.toLocaleString(undefined, opts)}`;
+  if (c === "GBP") return `£${price.toLocaleString(undefined, opts)}`;
+  if (c === "JPY") return `¥${price.toLocaleString(undefined, opts)}`;
+  return `${price.toLocaleString(undefined, opts)} ${c}`;
+}
+
 function instrumentToItem(inst: InstrumentRow, live?: Item): Item {
   if (live) return live;
   return {
@@ -286,10 +288,13 @@ function matchesSearch(item: Item, q: string): boolean {
 export default function MarketsPage() {
   const [tab, setTab] = useState<Tab>("crypto");
   const [items, setItems] = useState<Item[]>([]);
+  const [equityLive, setEquityLive] = useState<Item[]>([]);
+  const [equityLoading, setEquityLoading] = useState(false);
   const [instruments, setInstruments] = useState<InstrumentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Item | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string>();
+  const [equityFetchedAt, setEquityFetchedAt] = useState<string>();
   const [q, setQ] = useState("");
 
   useEffect(() => {
@@ -306,14 +311,31 @@ export default function MarketsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  // On-demand equity quotes — cron cache often lacks stocks when Stooq/Yahoo batch fails.
+  useEffect(() => {
+    if (tab === "crypto") return;
+    const type = tab === "indices" ? "index" : "equity";
+    setEquityLoading(true);
+    fetch(`/api/v1/markets/equity?type=${type}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setEquityLive(d.items ?? []);
+        setEquityFetchedAt(d.fetchedAt);
+      })
+      .catch(() => setEquityLive([]))
+      .finally(() => setEquityLoading(false));
+  }, [tab]);
+
   const liveBySymbol = useMemo(() => {
     const map = new Map<string, Item>();
-    for (const i of items) {
-      const sym = String(i.extra?.symbol ?? i.id.replace(/^(crypto|stock):/, "")).toUpperCase();
+    const all = [...items, ...equityLive];
+    for (const i of all) {
+      const sym = String(i.extra?.symbol ?? i.id.replace(/^(crypto|stock):/, ""));
+      map.set(sym.toUpperCase(), i);
       map.set(sym, i);
     }
     return map;
-  }, [items]);
+  }, [items, equityLive]);
 
   const filtered = useMemo(() => {
     if (tab === "crypto") {
@@ -325,7 +347,9 @@ export default function MarketsPage() {
     const instType = tab === "indices" ? "index" : "equity";
     const seeded = instruments
       .filter((i) => i.instrumentType === instType)
-      .map((inst) => instrumentToItem(inst, liveBySymbol.get(inst.symbol.toUpperCase())));
+      .map((inst) =>
+        instrumentToItem(inst, liveBySymbol.get(inst.symbol) ?? liveBySymbol.get(inst.symbol.toUpperCase())),
+      );
 
     const seededIds = new Set(seeded.map((s) => s.id));
     const extras = items.filter(
@@ -350,7 +374,12 @@ export default function MarketsPage() {
         <h1 className="flex items-center gap-2 normal-case tracking-normal text-xs font-medium text-ink">
           <TrendingUp className="h-4 w-4 text-live" /> Markets
         </h1>
-        {fetchedAt && <span className="normal-case tracking-normal">Updated {timeAgo(fetchedAt)}</span>}
+        {fetchedAt && (
+          <span className="normal-case tracking-normal">
+            Updated {timeAgo(equityFetchedAt ?? fetchedAt)}
+            {tab !== "crypto" && equityLoading && " · refreshing quotes…"}
+          </span>
+        )}
       </div>
       <div className="panel-tabs">
         {(["crypto", "stocks", "indices"] as Tab[]).map((t) => (
@@ -384,7 +413,9 @@ export default function MarketsPage() {
               <button key={m.id} onClick={() => setSelected(m)}
                 className="rounded-lg border border-line bg-panel p-3 text-left hover:bg-panel-2">
                 <div className="truncate text-xs font-medium text-ink">{m.title.split("(")[0].trim()}</div>
-                <div className="mono mt-1 text-lg font-semibold text-ink">${Number(m.extra?.price).toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                <div className="mono mt-1 text-lg font-semibold text-ink">
+                  {formatPrice(Number(m.extra?.price), String(m.extra?.currency ?? "USD"))}
+                </div>
                 <div className={`text-xs ${up ? "text-emerald-500" : "text-red-500"}`}>{up ? "+" : ""}{ch.toFixed(2)}%</div>
               </button>
             );
@@ -394,7 +425,7 @@ export default function MarketsPage() {
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div>
-          {loading ? (
+          {loading || (tab !== "crypto" && equityLoading && filtered.every((m) => Number(m.extra?.price ?? 0) === 0)) ? (
             <Skeleton rows={8} />
           ) : filtered.length === 0 ? (
             <div className="rounded-lg border border-line p-6 text-center text-sm text-ink-dim">
@@ -418,6 +449,7 @@ export default function MarketsPage() {
                     const up = ch >= 0;
                     const spark = m.extra?.sparkline as number[] | undefined;
                     const price = Number(m.extra?.price ?? 0);
+                    const currency = String(m.extra?.currency ?? "USD");
                     return (
                       <tr key={m.id} onClick={() => setSelected(m)}
                         className={`cursor-pointer border-t border-line hover:bg-panel-2 ${selected?.id === m.id ? "bg-panel-2" : ""}`}>
@@ -427,7 +459,7 @@ export default function MarketsPage() {
                           <div className="text-ink-dim">{String(m.extra?.symbol ?? m.source)} · {String(m.extra?.exchange ?? m.source)}</div>
                         </td>
                         <td className="mono px-3 py-2 text-right text-ink">
-                          {price > 0 ? `$${price.toLocaleString(undefined, { maximumFractionDigits: 4 })}` : "—"}
+                          {price > 0 ? formatPrice(price, currency) : "—"}
                         </td>
                         <td className={`hidden px-3 py-2 text-right sm:table-cell ${price > 0 ? (up ? "text-emerald-500" : "text-red-500") : "text-ink-dim"}`}>
                           {price > 0 ? `${up ? "+" : ""}${ch.toFixed(2)}%` : "—"}
