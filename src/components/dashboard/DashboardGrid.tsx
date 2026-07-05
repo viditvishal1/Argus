@@ -60,6 +60,8 @@ export function DashboardGrid({ preset = "intelligence" }: { preset?: string }) 
       setLayout(stored);
     } else if (preset === "aviation") {
       import("@/lib/panels/defaults").then((m) => setLayout(m.DEFAULT_AVIATION_LAYOUT));
+    } else if (preset === "finance") {
+      import("@/lib/panels/defaults").then((m) => setLayout(m.DEFAULT_FINANCE_LAYOUT));
     }
 
     fetch("/api/dashboard/layout")

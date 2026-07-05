@@ -5,13 +5,14 @@ import { usePathname } from "next/navigation";
 import {
   Globe2, Newspaper, ShieldAlert, Plane, Ship, Rocket, CandlestickChart,
   GitBranch, Landmark, Server, Building2, Network, Bot, Bookmark, Settings,
-  Radar, FolderOpen, Flame, Tv, TrendingUp, LayoutDashboard,
+  Radar, FolderOpen, Flame, Tv, TrendingUp, LayoutDashboard, BookOpen,
 } from "lucide-react";
 import { MODULES } from "@/lib/modules";
 import { VariantSwitcher } from "@/components/VariantSwitcher";
 import { FreshnessBadge } from "@/components/FreshnessBadge";
 import { FindingsBadge } from "@/components/FindingsBadge";
 import { AuthButton } from "@/components/AuthButton";
+import { useActiveVariant } from "@/lib/variants/useVariant";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   earth: Globe2, news: Newspaper, cyber: ShieldAlert, aviation: Plane,
@@ -23,6 +24,10 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export function Nav() {
   const pathname = usePathname();
+  const { variant } = useActiveVariant();
+  const moduleSet = new Set(variant.modules);
+  const visibleModules = MODULES.filter((m) => moduleSet.has(m.id));
+
   const link = (href: string, label: string, Icon: React.ComponentType<{ className?: string }>) => {
     const active = pathname === href || (href !== "/" && pathname.startsWith(href + "/"));
     return (
@@ -43,7 +48,7 @@ export function Nav() {
 
   return (
     <aside className="sticky top-0 flex h-screen w-12 shrink-0 flex-col border-r border-line bg-panel px-1.5 py-3 lg:w-56 lg:px-3">
-      <Link href="/" className="mb-2 flex items-center gap-2 px-2">
+      <Link href={variant.defaultPath} className="mb-2 flex items-center gap-2 px-2">
         <Radar className="h-5 w-5 text-accent" />
         <span className="mono hidden text-sm font-semibold tracking-widest text-ink lg:inline">
           ARG<span className="text-accent">US</span>
@@ -55,11 +60,12 @@ export function Nav() {
       </div>
       <VariantSwitcher />
       <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto">
-        {MODULES.map((m) => link(m.path, m.name, ICONS[m.id] ?? Globe2))}
+        {visibleModules.map((m) => link(m.path, m.name, ICONS[m.id] ?? Globe2))}
       </nav>
       <div className="mt-2 flex flex-col gap-0.5 border-t border-line pt-2">
         <AuthButton />
         {link("/saved", "Saved", Bookmark)}
+        {link("/methodology", "Methodology", BookOpen)}
         {link("/admin/sources", "Sources", Settings)}
         {link("/settings", "Settings", Settings)}
       </div>

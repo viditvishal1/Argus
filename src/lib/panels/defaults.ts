@@ -25,9 +25,23 @@ export const DEFAULT_AVIATION_LAYOUT: DashboardLayout = {
   ],
 };
 
+export const DEFAULT_FINANCE_LAYOUT: DashboardLayout = {
+  id: "finance-default",
+  name: "Finance",
+  version: 1,
+  panels: [
+    { id: "p-markets", panelKey: "markets-snapshot", x: 0, y: 0, w: 6, h: 4 },
+    { id: "p-stocks", panelKey: "stocks-ticker", x: 6, y: 0, w: 6, h: 4 },
+    { id: "p-macro", panelKey: "macro-snapshot", x: 0, y: 4, w: 6, h: 3 },
+    { id: "p-wire", panelKey: "wire-headlines", x: 6, y: 4, w: 6, h: 3 },
+    { id: "p-monitors", panelKey: "my-monitors", x: 0, y: 7, w: 12, h: 3 },
+  ],
+};
+
 export const DASHBOARD_PRESETS: Record<string, DashboardLayout> = {
   intelligence: DEFAULT_INTELLIGENCE_LAYOUT,
   aviation: DEFAULT_AVIATION_LAYOUT,
+  finance: DEFAULT_FINANCE_LAYOUT,
 };
 
 export const STORAGE_KEY = "argus:dashboard-layout:v1";

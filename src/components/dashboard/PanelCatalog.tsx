@@ -1,6 +1,7 @@
 "use client";
 
 import { listPanels } from "@/lib/panels/registry";
+import { useActiveVariant } from "@/lib/variants/useVariant";
 
 export function PanelCatalog({
   onAdd,
@@ -11,7 +12,9 @@ export function PanelCatalog({
   onClose: () => void;
   existingKeys: string[];
 }) {
-  const panels = listPanels();
+  const { variant } = useActiveVariant();
+  const allowed = new Set(variant.panels);
+  const panels = listPanels().filter((p) => allowed.has(p.key) || variant.id === "world");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>

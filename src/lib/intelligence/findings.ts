@@ -9,7 +9,10 @@ export type SignalType =
   | "cyber_kev"
   | "natural_hazard"
   | "maritime_activity"
-  | "aviation_density";
+  | "aviation_density"
+  | "infrastructure_cascade"
+  | "maritime_chokepoint"
+  | "aviation_disruption";
 
 export interface FindingEvidence {
   itemId: string;
@@ -114,6 +117,93 @@ function detectNaturalHazard(items: Item[]): Finding[] {
   }];
 }
 
+const CHOKEPOINTS = [
+  { id: "suez", label: "Suez Canal", lat: 30.0, lon: 32.5, radius: 2.5 },
+  { id: "hormuz", label: "Strait of Hormuz", lat: 26.5, lon: 56.5, radius: 2.0 },
+  { id: "malacca", label: "Strait of Malacca", lat: 2.5, lon: 101.0, radius: 2.5 },
+  { id: "panama", label: "Panama Canal", lat: 9.0, lon: -79.7, radius: 1.5 },
+] as const;
+
+function nearChokepoint(lat: number, lon: number): (typeof CHOKEPOINTS)[number] | null {
+  for (const cp of CHOKEPOINTS) {
+    const dLat = lat - cp.lat;
+    const dLon = lon - cp.lon;
+    if (Math.sqrt(dLat * dLat + dLon * dLon) <= cp.radius) return cp;
+  }
+  return null;
+}
+
+function detectMaritimeChokepoint(items: Item[]): Finding[] {
+  const maritime = items.filter((i) => i.module === "maritime" && i.lat != null && i.lon != null);
+  const hits = new Map<string, Item[]>();
+  for (const i of maritime) {
+    const cp = nearChokepoint(i.lat!, i.lon!);
+    if (!cp) continue;
+    const list = hits.get(cp.id) ?? [];
+    list.push(i);
+    hits.set(cp.id, list);
+  }
+  const out: Finding[] = [];
+  for (const cp of CHOKEPOINTS) {
+    const group = hits.get(cp.id);
+    if (!group || group.length < 3) continue;
+    out.push({
+      id: `finding:chokepoint:${cp.id}`,
+      signalType: "maritime_chokepoint",
+      title: `Maritime density — ${cp.label}`,
+      summary: `${group.length} AIS contacts near ${cp.label} in current window`,
+      confidence: 0.7,
+      region: cp.label,
+      score: group.length,
+      evidence: toEvidence(group),
+      detectedAt: group[0].timestamp,
+      methodologyVersion: FINDINGS_METHODOLOGY_VERSION,
+    });
+  }
+  return out;
+}
+
+function detectAviationDisruption(items: Item[]): Finding[] {
+  const aviation = items.filter(
+    (i) => i.module === "aviation"
+      && ((i.severity ?? 0) >= 6 || /delay|cancel|ground|notam|closure/i.test(`${i.title} ${i.summary ?? ""}`)),
+  );
+  if (aviation.length < 2) return [];
+  return [{
+    id: "finding:aviation:disruption",
+    signalType: "aviation_disruption",
+    title: "Aviation disruption cluster",
+    summary: `${aviation.length} high-impact aviation notices in feed`,
+    confidence: 0.72,
+    score: aviation.length * 2,
+    evidence: toEvidence(aviation),
+    detectedAt: aviation[0].timestamp,
+    methodologyVersion: FINDINGS_METHODOLOGY_VERSION,
+  }];
+}
+
+function detectInfrastructureCascade(items: Item[]): Finding[] {
+  const infra = items.filter(
+    (i) => i.module === "infrastructure"
+      || i.tags.some((t) => /outage|bgp|dns|cdn|cloudflare|aws|azure/i.test(t)),
+  );
+  const severe = infra.filter(
+    (i) => (i.severity ?? 0) >= 5 || /outage|cascade|degraded|incident/i.test(`${i.title} ${i.summary ?? ""}`),
+  );
+  if (severe.length < 2) return [];
+  return [{
+    id: "finding:infra:cascade",
+    signalType: "infrastructure_cascade",
+    title: "Infrastructure stress signal",
+    summary: `${severe.length} infrastructure or platform health events may indicate cascading impact`,
+    confidence: 0.68,
+    score: severe.length * 2.5,
+    evidence: toEvidence(severe),
+    detectedAt: severe[0].timestamp,
+    methodologyVersion: FINDINGS_METHODOLOGY_VERSION,
+  }];
+}
+
 /** Strategic risk top countries — requires CII coverage gate. */
 export function computeStrategicRisk(
   items: Item[],
@@ -144,6 +234,9 @@ export function detectFindings(items: Item[], opts?: { limit?: number }): Findin
     ...detectConflictEscalation(items),
     ...detectCyberKev(items),
     ...detectNaturalHazard(items),
+    ...detectMaritimeChokepoint(items),
+    ...detectAviationDisruption(items),
+    ...detectInfrastructureCascade(items),
   ];
   const deduped = new Map<string, Finding>();
   for (const f of findings) deduped.set(f.id, f);

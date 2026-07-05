@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { listVariants } from "@/lib/variants/registry";
 import type { VariantId } from "@/lib/variants/types";
+import { setActiveVariant } from "@/lib/variants/useVariant";
 
 export function VariantSwitcher() {
+  const router = useRouter();
   const variants = listVariants(true);
   const [active, setActive] = useState<VariantId>("world");
 
@@ -15,8 +18,7 @@ export function VariantSwitcher() {
 
   const onChange = (id: VariantId) => {
     setActive(id);
-    localStorage.setItem("argus_variant", id);
-    document.cookie = `argus_variant=${id};path=/;max-age=31536000`;
+    setActiveVariant(id, router);
   };
 
   return (

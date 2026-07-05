@@ -8,6 +8,9 @@ import { useRouter } from "next/navigation";
 import { Command, CornerDownLeft, Search } from "lucide-react";
 import { MODULES } from "@/lib/modules";
 
+import { PANEL_REGISTRY } from "@/lib/panels/registry";
+import { COUNTRIES } from "@/lib/geo/country-index";
+
 interface PaletteEntry {
   id: string;
   label: string;
@@ -17,6 +20,20 @@ interface PaletteEntry {
 
 const STATIC_ENTRIES: PaletteEntry[] = [
   ...MODULES.map((m) => ({ id: m.id, label: m.name, hint: m.description, path: m.path })),
+  ...PANEL_REGISTRY.map((p) => ({
+    id: `panel:${p.key}`,
+    label: `Panel: ${p.title}`,
+    hint: `Add to dashboard · ${p.category}`,
+    path: `/dashboard?add=${p.key}`,
+  })),
+  ...COUNTRIES.map((c) => ({
+    id: `country:${c.iso2}`,
+    label: `Country: ${c.name}`,
+    hint: `CII brief · ${c.region}`,
+    path: `/country/${c.iso2.toLowerCase()}`,
+  })),
+  { id: "dashboard", label: "Dashboard", hint: "Customizable panel grid", path: "/dashboard" },
+  { id: "methodology", label: "Methodology", hint: "Scoring and provenance", path: "/methodology" },
   { id: "saved", label: "Saved", hint: "Bookmarks and watchlists", path: "/saved" },
   { id: "sources", label: "Sources", hint: "Connector health and configuration", path: "/admin/sources" },
   { id: "settings", label: "Settings", hint: "Theme, keys, preferences", path: "/settings" },

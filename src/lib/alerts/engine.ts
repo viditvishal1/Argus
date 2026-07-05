@@ -5,7 +5,8 @@ import { isFeatureEnabled } from "@/lib/platform/feature-flags";
 import type { Item } from "@/lib/types";
 import { itemMatchesRule, severityForRule, type WatchlistRef } from "@/lib/alerts/evaluate";
 import { isAlertDuplicate } from "@/lib/alerts/dedup";
-import { listAlertRules } from "@/lib/alerts/rules";
+import { listAlertRules, type AlertRule } from "@/lib/alerts/rules";
+import { listSavedSearches } from "@/lib/search/saved";
 import { broadcastAlert } from "@/lib/alerts/stream";
 import { publish } from "@/lib/events/bus";
 
@@ -102,7 +103,16 @@ export async function evaluateAlerts(items: Item[]): Promise<AlertEvent[]> {
   if (!(await isFeatureEnabled("alert_engine"))) return [];
 
   const rules = await listAlertRules();
-  const enabled = rules.filter((r) => r.enabled);
+  const savedSearches = await listSavedSearches(true);
+  const virtualRules: AlertRule[] = savedSearches.map((s) => ({
+    id: `saved:${s.id}`,
+    name: `Saved search: ${s.name}`,
+    ruleType: "keyword",
+    enabled: true,
+    config: { keyword: s.query, savedSearchId: s.id },
+    createdAt: s.createdAt,
+  }));
+  const enabled = [...rules, ...virtualRules].filter((r) => r.enabled);
   if (!enabled.length) return [];
 
   const watchlists = await loadWatchlistsForRules(enabled);

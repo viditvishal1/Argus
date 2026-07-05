@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 async function loadItems(): Promise<Item[]> {
   const mods = await Promise.all(
-    ["earth", "news", "conflict", "cyber", "aviation", "maritime"].map((m) => readModuleLiveCached(m)),
+    ["earth", "news", "conflict", "cyber", "aviation", "maritime", "infrastructure"].map((m) => readModuleLiveCached(m)),
   );
   return mods.flatMap((r) => r?.data ?? []);
 }

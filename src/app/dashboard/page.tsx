@@ -3,9 +3,22 @@
 import { useState } from "react";
 import { DashboardGrid } from "@/components/dashboard/DashboardGrid";
 import { GlobeDashboard } from "@/components/GlobeDashboard";
+import { useActiveVariant } from "@/lib/variants/useVariant";
+
+const PRESET_BY_VARIANT: Record<string, string> = {
+  world: "intelligence",
+  finance: "finance",
+  aviation: "aviation",
+  commodity: "intelligence",
+  energy: "intelligence",
+  tech: "intelligence",
+  happy: "intelligence",
+};
 
 export default function DashboardPage() {
   const [mode, setMode] = useState<"grid" | "classic">("grid");
+  const { id } = useActiveVariant();
+  const preset = PRESET_BY_VARIANT[id] ?? "intelligence";
 
   return (
     <div className="-m-4 flex h-[calc(100vh-3.5rem)] flex-col md:-m-6">
@@ -27,7 +40,7 @@ export default function DashboardPage() {
       </div>
       <div className="min-h-0 flex-1">
         {mode === "grid" ? (
-          <DashboardGrid preset="intelligence" />
+          <DashboardGrid preset={preset} />
         ) : (
           <GlobeDashboard variant="dashboard" fullBleed region="global" />
         )}

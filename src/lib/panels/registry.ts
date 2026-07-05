@@ -186,6 +186,28 @@ export const PANEL_REGISTRY: PanelDefinition[] = [
     dataDependencies: [],
     mobile: "disabled",
   },
+  {
+    key: "macro-snapshot",
+    title: "Macro Context",
+    category: "markets",
+    componentId: "macro-snapshot",
+    defaultSize: { w: 4, h: 3 },
+    minSize: { w: 3, h: 2 },
+    dataDependencies: ["fred", "world-bank", "eia"],
+    mobile: "collapsed",
+    description: "Rates, GDP, inflation indicators",
+  },
+  {
+    key: "infrastructure-health",
+    title: "Infrastructure",
+    category: "system",
+    componentId: "infrastructure-health",
+    defaultSize: { w: 4, h: 4 },
+    minSize: { w: 3, h: 3 },
+    dataDependencies: ["cloudflare-radar", "status-pages"],
+    mobile: "collapsed",
+    description: "Platform and internet health signals",
+  },
 ];
 
 const byKey = new Map(PANEL_REGISTRY.map((p) => [p.key, p]));

@@ -146,6 +146,16 @@ export function PanelContent({
   if (definition.componentId === "space-tracker") {
     return shell(definition, onClose, draggable, "CelesTrak · ISS", <SpaceStatusPanel />);
   }
+  if (definition.componentId === "macro-snapshot") {
+    return shell(definition, onClose, draggable, "FRED · World Bank", (
+      <ModuleFeedPanel modules={["macro", "markets"]} moduleOnly="macro" emptyLabel="Loading macro indicators…" linkHref="/macro" />
+    ));
+  }
+  if (definition.componentId === "infrastructure-health") {
+    return shell(definition, onClose, draggable, "Status feeds", (
+      <ModuleFeedPanel modules={["infrastructure"]} showSeverity emptyLabel="Loading infrastructure signals…" linkHref="/infrastructure" />
+    ));
+  }
 
   const quickKind = QUICK_MAP[definition.componentId];
   if (quickKind) {
