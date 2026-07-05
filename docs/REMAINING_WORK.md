@@ -1,42 +1,52 @@
-# EarthOS — Remaining Work (Phase 2–4)
+# EarthOS — Remaining Work (post Phase 2–4 foundation)
 
-## Phase 2 — Search & ontology
+## Completed in Phase 2–4 foundation deploy
 
-- [ ] Supabase Auth + organisation tenant isolation
-- [ ] Entity master, aliases, external identifiers (Wikidata, ICAO, IMO, tickers)
-- [ ] Relationship evidence table with confidence + valid_from/to
-- [ ] Replace co-occurrence-only graph with evidence-backed edges
-- [ ] OpenSearch adapter (lexical + faceted + geo)
-- [ ] pgvector embeddings for entities, stories, investigations
-- [ ] Hybrid search pipeline (no live connector fan-out on search)
-- [ ] Citation-grounded research API with sentence-level sources
-- [ ] Entity 360 pages
-- [ ] Admin UI for source configuration (replace seed-only)
+- [x] Entity master, aliases, identifiers, relationships tables
+- [x] Search documents (PostgreSQL FTS fallback)
+- [x] pgvector table scaffold
+- [x] Hybrid search (indexed first, limited live fallback)
+- [x] Citation-grounded research API (`/api/research`)
+- [x] Entity 360 pages (`/entity/[id]`)
+- [x] OpenSearch adapter (optional, env-gated)
+- [x] Admin source config view (`/admin/sources`)
+- [x] Config-driven market instruments
+- [x] GDELT global events connector
+- [x] Viewport map API with clustering
+- [x] TomTom traffic adapter (key-gated)
+- [x] ClickHouse adapter stub
+- [x] Alert engine + `/api/alerts`
+- [x] Investigation workspaces + cited report export
 
-## Phase 3 — Live intelligence
+## Still outstanding
 
-- [ ] Config-driven market catalogue (wire `market_instruments` into connectors)
-- [ ] Viewport-bounded map APIs with server-side clustering
-- [ ] TomTom / traffic provider adapter; rename layer only after connected
-- [ ] AISStream / global AIS
-- [ ] GDELT events adapter
-- [ ] Wikidata entity resolution
-- [ ] ClickHouse production adapter (optional)
-- [ ] Historical playback
-- [ ] Cross-domain alert engine
+### Auth & multi-tenancy
+- [ ] Supabase Auth integration
+- [ ] Organisation-scoped RLS for authenticated users
+- [ ] Admin write UI for source enable/disable
 
-## Phase 4 — Operational intelligence
+### Search & ontology depth
+- [ ] OpenSearch index pipeline (auto-index on ingest)
+- [ ] pgvector embedding generation (Gemini / local model)
+- [ ] Wikidata auto-enrichment on entity create
+- [ ] Confirmed vs inferred relationship UI
+- [ ] Full entity resolution (ICAO, IMO, tickers)
 
-- [ ] Investigation workspaces (evidence, notes, hypotheses, timelines)
-- [ ] Team collaboration + comments
-- [ ] Cited report export
-- [ ] Workflow actions + assignments
-- [ ] Advanced anomaly detection
+### Live intelligence depth
+- [ ] AISStream global AIS
+- [ ] Historical playback UI
+- [ ] ClickHouse production deployment + writers
+- [ ] Traffic layer UI when TomTom connected
+- [ ] Watchlist-driven map tracking
 
-## Infrastructure follow-ups
+### Operational intelligence depth
+- [ ] Real-time collaboration / comments sync
+- [ ] Workflow assignments
+- [ ] Advanced cross-domain alert rules UI
+- [ ] Anomaly detection models
 
-- [ ] Full AWS SigV4 signing for R2 uploads (replace Phase 1 fetch stub)
-- [ ] Background cron workers for ingestion (Vercel Cron or external worker)
-- [ ] Supabase Management API for real DB size metrics
-- [ ] Partitioned tables + automated partition drops for ephemeral data
-- [ ] OpenSearch index lifecycle management
+### Infrastructure
+- [ ] Vercel Cron ingestion workers
+- [ ] Partitioned ephemeral tables + auto-drop
+- [ ] R2 SigV4 upload SDK
+- [ ] Supabase Management API size metrics

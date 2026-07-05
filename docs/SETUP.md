@@ -16,7 +16,8 @@ npm run typecheck
 1. Create a Supabase project
 2. Run **`supabase/schema.sql`** in SQL Editor
 3. Run **`supabase/migrations/001_platform_foundation.sql`**
-4. Set in `.env.local`:
+4. Run **`supabase/migrations/002_ontology_search_ops.sql`**
+5. Set in `.env.local`:
    - `SUPABASE_URL`
    - `SUPABASE_SERVICE_KEY` (required for server writes in production)
 5. Seed configuration:

@@ -2,6 +2,7 @@
 // via Yahoo Finance's public chart API (free, no key). In-app charting uses
 // the history helpers below; nothing links out to an exchange for basic reading.
 
+import { getMarketInstruments } from "@/lib/config/sources";
 import type { Item } from "@/lib/types";
 import { fetchWithTimeout, registerConnector } from "./framework";
 
@@ -63,23 +64,25 @@ registerConnector(
   },
 );
 
-const YAHOO_SYMBOLS: { s: string; name: string; assetClass: string }[] = [
-  { s: "^GSPC", name: "S&P 500", assetClass: "index" },
-  { s: "^DJI", name: "Dow Jones", assetClass: "index" },
-  { s: "^IXIC", name: "Nasdaq Composite", assetClass: "index" },
-  { s: "^FTSE", name: "FTSE 100", assetClass: "index" },
-  { s: "^N225", name: "Nikkei 225", assetClass: "index" },
-  { s: "^GDAXI", name: "DAX", assetClass: "index" },
-  { s: "^NSEI", name: "NIFTY 50", assetClass: "index" },
-  { s: "AAPL", name: "Apple", assetClass: "equity" },
-  { s: "MSFT", name: "Microsoft", assetClass: "equity" },
-  { s: "NVDA", name: "NVIDIA", assetClass: "equity" },
-  { s: "GOOGL", name: "Alphabet", assetClass: "equity" },
-  { s: "AMZN", name: "Amazon", assetClass: "equity" },
-  { s: "TSLA", name: "Tesla", assetClass: "equity" },
-];
-
 const YF_HEADERS = { "User-Agent": "Mozilla/5.0 (EarthOS open-source dashboard)" };
+
+async function yahooSymbols(): Promise<{ s: string; name: string; assetClass: string }[]> {
+  const instruments = await getMarketInstruments();
+  if (instruments.length > 0) {
+    return instruments.map((i) => ({
+      s: i.symbol,
+      name: i.name,
+      assetClass: i.instrument_type,
+    }));
+  }
+  return [
+    { s: "^GSPC", name: "S&P 500", assetClass: "index" },
+    { s: "^DJI", name: "Dow Jones", assetClass: "index" },
+    { s: "AAPL", name: "Apple", assetClass: "equity" },
+    { s: "MSFT", name: "Microsoft", assetClass: "equity" },
+    { s: "NVDA", name: "NVIDIA", assetClass: "equity" },
+  ];
+}
 
 interface YfChart {
   chart: {
@@ -108,8 +111,9 @@ registerConnector(
     entityTypes: ["instrument"],
   },
   async () => {
+    const symbols = await yahooSymbols();
     const results = await Promise.allSettled(
-      YAHOO_SYMBOLS.map(async (meta) => {
+      symbols.map(async (meta) => {
         const res = await fetchWithTimeout(
           `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(meta.s)}?range=5d&interval=1d`,
           { timeoutMs: 10000, headers: YF_HEADERS },

@@ -8,6 +8,7 @@ import { isSourceEnabled } from "@/lib/config/sources";
 import { recordConnectorRun } from "@/lib/db/platform";
 import { enqueueIngestion } from "@/lib/queue/ingestion";
 import { trackConnectorRequest } from "@/lib/usage/tracker";
+import { evaluateAlerts } from "@/lib/alerts/engine";
 
 interface CacheEntry {
   at: number;
@@ -168,6 +169,8 @@ export async function runConnector(id: string): Promise<Item[]> {
       itemCount: items.length,
       latencyMs: Date.now() - started,
     }).catch(() => {});
+
+    void evaluateAlerts(items).catch(() => {});
 
     return items;
   } catch (err) {

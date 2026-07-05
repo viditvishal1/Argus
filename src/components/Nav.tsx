@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Globe2, Newspaper, ShieldAlert, Plane, Ship, Rocket, CandlestickChart,
   GitBranch, Landmark, Server, Building2, Network, Bot, Bookmark, Settings,
-  Radar,
+  Radar, FolderOpen,
 } from "lucide-react";
 import { MODULES } from "@/lib/modules";
 
@@ -13,7 +13,7 @@ const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   earth: Globe2, news: Newspaper, cyber: ShieldAlert, aviation: Plane,
   maritime: Ship, space: Rocket, markets: CandlestickChart, startup: GitBranch,
   government: Landmark, infrastructure: Server, city: Building2,
-  graph: Network, analyst: Bot,
+  graph: Network, analyst: Bot, investigations: FolderOpen,
 };
 
 export function Nav() {
@@ -49,6 +49,7 @@ export function Nav() {
       </nav>
       <div className="mt-2 flex flex-col gap-0.5 border-t border-line pt-2">
         {link("/saved", "Saved", Bookmark)}
+        {link("/admin/sources", "Sources", Settings)}
         {link("/settings", "Settings", Settings)}
       </div>
     </aside>

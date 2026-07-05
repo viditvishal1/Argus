@@ -78,6 +78,8 @@ export interface GraphEdge {
   type: EdgeType;
   itemIds: string[];
   weight: number;
+  confidence?: number;
+  resolutionMethod?: "inferred" | "confirmed" | "manual";
 }
 
 export type ConnectorHealthState =

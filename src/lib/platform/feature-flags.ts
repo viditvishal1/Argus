@@ -10,7 +10,10 @@ const DEFAULTS: Record<string, boolean> = {
   redis_cache: false,
   clickhouse_analytics: false,
   opensearch: false,
-  hybrid_search: false,
+  hybrid_search: true,
+  investigations: true,
+  alert_engine: true,
+  gdelt_connector: true,
   background_ingestion: false,
   strict_rate_limits: true,
 };

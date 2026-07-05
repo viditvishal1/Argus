@@ -23,6 +23,7 @@ export const MODULES: ModuleDef[] = [
   { id: "infrastructure", name: "Infrastructure", path: "/infrastructure", description: "Internet & platform health", accent: "teal" },
   { id: "city", name: "City Digital Twin", path: "/city", description: "Per-city composite intelligence view", accent: "indigo" },
   { id: "graph", name: "Knowledge Graph", path: "/graph", description: "Cross-module entity explorer", accent: "fuchsia" },
+  { id: "investigations", name: "Investigations", path: "/investigations", description: "Evidence workspaces, notes, cited exports", accent: "rose" },
   { id: "analyst", name: "AI Analyst", path: "/analyst", description: "Natural-language cross-module Q&A", accent: "purple" },
 ];
 

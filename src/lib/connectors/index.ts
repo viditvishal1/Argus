@@ -13,6 +13,7 @@ import "./startup";
 import "./government";
 import "./patents";
 import "./infrastructure";
+import "./gdelt";
 
 export { NEWS_CONNECTOR_IDS, searchGoogleNews } from "./news";
 export { EARTH_CONNECTOR_IDS, fetchWeather } from "./earth";
@@ -24,6 +25,7 @@ export { MARKETS_CONNECTOR_IDS, fetchStockHistory, fetchCryptoHistory } from "./
 export { STARTUP_CONNECTOR_IDS, fetchReadme } from "./startup";
 export { GOVERNMENT_CONNECTOR_IDS, searchDataGov } from "./government";
 export { INFRASTRUCTURE_CONNECTOR_IDS, fetchPlatformStatuses } from "./infrastructure";
+export { GDELT_CONNECTOR_ID } from "./gdelt";
 export {
   connectors,
   connectorStatuses,
@@ -42,9 +44,10 @@ import { MARKETS_CONNECTOR_IDS } from "./markets";
 import { STARTUP_CONNECTOR_IDS } from "./startup";
 import { GOVERNMENT_CONNECTOR_IDS } from "./government";
 import { INFRASTRUCTURE_CONNECTOR_IDS } from "./infrastructure";
+import { GDELT_CONNECTOR_ID } from "./gdelt";
 
 export const MODULE_CONNECTORS: Record<string, string[]> = {
-  news: NEWS_CONNECTOR_IDS,
+  news: [...NEWS_CONNECTOR_IDS, GDELT_CONNECTOR_ID],
   earth: EARTH_CONNECTOR_IDS,
   cyber: CYBER_CONNECTOR_IDS,
   aviation: AVIATION_CONNECTOR_IDS,

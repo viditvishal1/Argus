@@ -3,6 +3,7 @@
 // backend can be swapped without touching the API or UI.
 
 import type { EdgeType, GraphEdge, GraphEntity, Item } from "@/lib/types";
+import { syncItemOntology } from "@/lib/ontology/store";
 
 type GraphStore = {
   entities: Map<string, GraphEntity>;
@@ -34,9 +35,10 @@ const MODULE_EDGE: Record<string, EdgeType> = {
   earth: "located_in",
 };
 
-/** Ingest normalized items: upsert entities, connect co-occurring entities. */
+/** Ingest normalized items: upsert entities, connect co-occurring entities (inferred). */
 export function ingestItems(items: Item[]) {
   for (const item of items) {
+    void syncItemOntology(item).catch(() => {});
     const ids: string[] = [];
     for (const e of item.entities) {
       if (!e.name || e.name.length < 2) continue;
@@ -83,6 +85,8 @@ export function ingestItems(items: Item[]) {
             type: edgeType,
             itemIds: [item.id],
             weight: 1,
+            confidence: 0.35,
+            resolutionMethod: "inferred",
           });
         }
       }

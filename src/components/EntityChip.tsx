@@ -21,9 +21,9 @@ const TYPE_COLORS: Record<string, string> = {
 export function EntityChip({ name, type }: { name: string; type: EntityType }) {
   return (
     <Link
-      href={`/graph?entity=${encodeURIComponent(entityId(name, type))}`}
+      href={`/entity/${encodeURIComponent(entityId(name, type))}`}
       className={`inline-flex max-w-[14rem] items-center gap-1 truncate rounded-full border bg-panel px-2 py-0.5 text-[11px] hover:bg-panel-2 ${TYPE_COLORS[type] ?? "border-line text-ink-dim"}`}
-      title={`${name} (${type}) — open in knowledge graph`}
+      title={`${name} (${type}) — open entity profile`}
     >
       <span className="truncate">{name}</span>
     </Link>
