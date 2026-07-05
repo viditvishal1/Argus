@@ -5,6 +5,7 @@ import { GlobalSearchBar } from "@/components/GlobalSearchBar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { CommandPalette } from "@/components/CommandPalette";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { MotionPause } from "@/components/MotionPause";
 
 export const metadata: Metadata = {
@@ -15,12 +16,15 @@ export const metadata: Metadata = {
 
 // Applied before first paint so the stored theme never flashes.
 const themeInit = `try{var t=localStorage.getItem("earthos.theme");document.documentElement.setAttribute("data-theme",t==="light"?"light":"dark")}catch(e){document.documentElement.setAttribute("data-theme","dark")}`;
+const localeInit = `try{var p=JSON.parse(localStorage.getItem("argus:preferences:v1")||"{}");var l=p.locale||"en";document.documentElement.lang=l;document.documentElement.dir=l==="ar"?"rtl":"ltr"}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
+        <link rel="manifest" href="/manifest.json" />
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
+        <script dangerouslySetInnerHTML={{ __html: localeInit }} />
       </head>
       <body className="min-h-screen">
         <MotionPause />
@@ -30,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-body/90 px-4 backdrop-blur">
               <GlobalSearchBar />
               <div className="ml-auto flex items-center gap-2">
+                <LocaleSwitcher />
                 <NotificationCenter />
                 <CommandPalette />
                 <ThemeToggle />

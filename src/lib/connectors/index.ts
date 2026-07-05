@@ -15,6 +15,7 @@ import "./patents";
 import "./infrastructure";
 import "./gdelt";
 import "./conflict";
+import "./governance";
 import "./macro";
 import "./firms";
 

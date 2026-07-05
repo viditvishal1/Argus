@@ -6,6 +6,7 @@
 // drop-in change behind these functions.
 
 import type { Item } from "@/lib/types";
+import { loadPreferences, mergePreferences } from "@/lib/preferences/store";
 
 function read<T>(key: string, fallback: T): T {
   if (typeof window === "undefined") return fallback;
@@ -47,11 +48,15 @@ export function toggleBookmark(item: Item): boolean {
 // ---- cyber watchlist (vendor / product keywords) ----
 
 export function getWatchlist(): string[] {
+  const fromPrefs = loadPreferences().cyberWatchlist;
+  if (fromPrefs.length > 0) return fromPrefs;
   return read<string[]>("earthos.watchlist.cyber", []);
 }
 
 export function setWatchlist(words: string[]) {
-  write("earthos.watchlist.cyber", words.map((w) => w.trim()).filter(Boolean));
+  const cleaned = words.map((w) => w.trim()).filter(Boolean);
+  write("earthos.watchlist.cyber", cleaned);
+  mergePreferences({ cyberWatchlist: cleaned });
 }
 
 // ---- saved filter presets, keyed per module ----

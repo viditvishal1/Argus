@@ -29,8 +29,16 @@ export async function resolveVariant(searchParams?: { variant?: string }): Promi
 export function variantForHostname(host: string | null): VariantId {
   if (!host) return DEFAULT_VARIANT_ID;
   const h = host.toLowerCase().split(":")[0];
-  if (h.startsWith("finance.")) return "finance";
-  if (h.startsWith("tech.")) return "tech";
+  const sub = h.split(".")[0];
+  const map: Record<string, VariantId> = {
+    finance: "finance",
+    tech: "tech",
+    commodity: "commodity",
+    energy: "energy",
+    happy: "happy",
+    world: "world",
+  };
+  if (map[sub]) return map[sub];
   return DEFAULT_VARIANT_ID;
 }
 

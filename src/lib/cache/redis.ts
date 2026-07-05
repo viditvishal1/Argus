@@ -7,6 +7,7 @@ import {
   resolveRedisCredentials,
   type RedisCredentialScheme,
 } from "@/lib/cache/redis-config";
+import { valkeyTcpConfigured, valkeyTcpGet, valkeyTcpSet } from "@/lib/cache/valkey-tcp";
 
 export { redisConfigured, redisCredentialScheme, resolveRedisCredentials };
 export type { RedisCredentialScheme };
@@ -84,6 +85,15 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
     }
   }
 
+  if (valkeyTcpConfigured()) {
+    try {
+      const raw = await valkeyTcpGet(fk);
+      if (raw) return JSON.parse(raw) as T;
+    } catch (err) {
+      logRedisError("GET/tcp", key, err);
+    }
+  }
+
   if (!allowMemoryFallback()) return null;
 
   const entry = local.get(fk);
@@ -112,6 +122,11 @@ export async function cacheSet(
         return { ok: false, backend: "none", error: err instanceof Error ? err.message : "redis_set_failed" };
       }
     }
+  }
+
+  if (valkeyTcpConfigured()) {
+    const ok = await valkeyTcpSet(fk, JSON.stringify(value), ttlSeconds);
+    if (ok) return { ok: true, backend: "redis" };
   }
 
   if (!allowMemoryFallback()) {

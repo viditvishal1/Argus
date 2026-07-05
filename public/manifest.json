@@ -1,0 +1,10 @@
+{
+  "name": "Argus",
+  "short_name": "Argus",
+  "description": "Open intelligence operating system",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0ea5e9",
+  "icons": []
+}

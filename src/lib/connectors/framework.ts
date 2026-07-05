@@ -10,6 +10,7 @@ import { enqueueIngestion } from "@/lib/queue/ingestion";
 import { trackConnectorRequest } from "@/lib/usage/tracker";
 import { evaluateAlerts } from "@/lib/alerts/engine";
 import { cacheGet, cacheSet } from "@/lib/cache/redis";
+import { enrichItemsProvenance } from "@/lib/provenance/enrich";
 
 interface CacheEntry {
   at: number;
@@ -147,6 +148,8 @@ export async function runConnector(id: string): Promise<Item[]> {
     if (manifest.contentPolicy === "metadata_only") {
       items = items.map((it) => ({ ...it, summary: undefined }));
     }
+    const fetchedAt = new Date().toISOString();
+    items = enrichItemsProvenance(items, { connectorId: id, fetchedAt, stale: false });
 
     store.cache.set(id, { at: Date.now(), items });
     store.failures.set(id, 0);

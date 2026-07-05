@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { Item } from "@/lib/types";
 import type { CctvCamera } from "@/lib/live/cctv/types";
 import { cameraAgencyUrl } from "@/lib/cameras/registry";
+import { useSmartPoll } from "@/lib/hooks/useSmartPoll";
 
 export interface GlobeLiveMeta {
   flightsUpdatedAt?: string | null;
@@ -227,11 +228,7 @@ export function useGlobeLiveData(region = "global") {
     setLoading(false);
   }, [applyBootstrap, region]);
 
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 90_000);
-    return () => clearInterval(t);
-  }, [load]);
+  useSmartPoll(load, { intervalMs: 90_000, hiddenBackoff: 2, maxHiddenIntervalMs: 300_000 });
 
   return { quakes, events, flights, ships, webcams, cctv, iss, meta, loading, refresh: load };
 }

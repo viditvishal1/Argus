@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useSmartPoll } from "@/lib/hooks/useSmartPoll";
 import Link from "next/link";
 import { Activity } from "lucide-react";
 
@@ -17,7 +18,7 @@ export function FreshnessBadge({ className }: { className?: string }) {
   const [state, setState] = useState<FreshnessState>("missing");
   const [gaps, setGaps] = useState(0);
 
-  useEffect(() => {
+  useSmartPoll(() => {
     fetch("/api/v1/freshness")
       .then((r) => r.json())
       .then((d) => {
@@ -25,7 +26,7 @@ export function FreshnessBadge({ className }: { className?: string }) {
         setGaps((d.intelligenceGaps ?? []).length);
       })
       .catch(() => setState("error"));
-  }, []);
+  }, { intervalMs: 120_000 });
 
   return (
     <Link
