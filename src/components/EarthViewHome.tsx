@@ -1,7 +1,7 @@
 "use client";
 
-// Earth View — full intelligence-OS home: KPI strip, activity feed, map,
-// signals, markets/city/aviation/investigations/graph panels, bottom ticker.
+// Earth View — intelligence OS home: KPI strip, full-bleed map, layer toggles,
+// activity/signals/alerts below map, five-panel grid, bottom ticker.
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
@@ -14,6 +14,17 @@ import { MapView, type MapLayer } from "@/components/MapView";
 import { Badge } from "@/components/Badge";
 import { timeAgo } from "@/components/ModuleView";
 import { useGlobeLiveData } from "@/lib/hooks/useGlobeLiveData";
+
+const LAYER_META = {
+  events: { label: "Events", color: "#38bdf8" },
+  quakes: { label: "Quakes", color: "#fb923c" },
+  iss: { label: "ISS", color: "#4ade80" },
+  flights: { label: "Flights", color: "#39ff8f" },
+  ships: { label: "Ships", color: "#22d3ee" },
+  webcams: { label: "Webcams", color: "#a78bfa" },
+} as const;
+
+type LayerKey = keyof typeof LAYER_META;
 
 interface KpiState {
   alerts: number;
@@ -56,38 +67,41 @@ export function EarthViewHome() {
   const [kpi, setKpi] = useState<KpiState>({ alerts: 0, criticalAlerts: 0, vessels: 0, aircraft: 0 });
   const [cityWeather, setCityWeather] = useState<KpiState["weather"]>();
   const [fetchedAt, setFetchedAt] = useState<string>();
+  const [toggles, setToggles] = useState<Record<LayerKey, boolean>>({
+    events: true, quakes: true, iss: true, flights: true, ships: true, webcams: false,
+  });
+  const [isolate, setIsolate] = useState<LayerKey | null>(null);
+  const [autoRotate, setAutoRotate] = useState(true);
 
   useEffect(() => {
+    fetch("/api/bootstrap")
+      .then((r) => r.json())
+      .then((data) => {
+        const all: Item[] = [];
+        for (const mod of ["earth", "news", "conflict", "cyber"] as const) {
+          all.push(...(data.modules?.[mod]?.items ?? []));
+        }
+        setItems(all);
+        setMarkets(data.modules?.markets?.items ?? []);
+        setFetchedAt(data.fetchedAt);
+
+        const m = (data.modules?.markets?.items ?? []) as Item[];
+        const sp = m.find((i) => i.title.includes("S&P") || i.tags.includes("^gspc"));
+        const chg = sp?.extra?.change24h ?? sp?.severityLabel;
+        if (chg != null) {
+          setKpi((k) => ({ ...k, spChange: `${Number(chg) >= 0 ? "+" : ""}${Number(chg).toFixed(2)}%` }));
+        }
+      })
+      .catch(() => {});
+
     Promise.allSettled([
-      fetch("/api/modules/earth").then((r) => r.json()),
-      fetch("/api/modules/conflict").then((r) => r.json()),
-      fetch("/api/modules/cyber").then((r) => r.json()),
-      fetch("/api/modules/news").then((r) => r.json()),
-      fetch("/api/modules/markets").then((r) => r.json()),
       fetch("/api/alerts").then((r) => r.json()),
       fetch("/api/investigations").then((r) => r.json()),
       fetch("/api/weather?lat=1.35&lon=103.82").then((r) => r.json()),
       fetch("/api/traffic?minLat=1.2&minLon=103.6&maxLat=1.5&maxLon=104.0").then((r) => r.json()),
     ]).then((results) => {
-      const all: Item[] = [];
-      results.slice(0, 4).forEach((res) => {
-        if (res.status === "fulfilled" && res.value.items) {
-          all.push(...(res.value.items as Item[]));
-          if (res.value.fetchedAt) setFetchedAt(res.value.fetchedAt);
-        }
-      });
-      setItems(all);
-
-      if (results[4].status === "fulfilled") {
-        const m = (results[4].value.items ?? []) as Item[];
-        setMarkets(m);
-        const sp = m.find((i) => i.title.includes("S&P") || i.tags.includes("^gspc"));
-        const chg = sp?.extra?.change24h ?? sp?.severityLabel;
-        if (chg != null) setKpi((k) => ({ ...k, spChange: `${Number(chg) >= 0 ? "+" : ""}${Number(chg).toFixed(2)}%` }));
-      }
-
-      if (results[5].status === "fulfilled") {
-        const a = results[5].value.alerts ?? [];
+      if (results[0].status === "fulfilled") {
+        const a = results[0].value.alerts ?? [];
         setAlerts(a);
         setKpi((k) => ({
           ...k,
@@ -95,13 +109,11 @@ export function EarthViewHome() {
           criticalAlerts: a.filter((x: { severity: string }) => x.severity === "critical").length,
         }));
       }
-
-      if (results[6].status === "fulfilled") {
-        setInvestigations(results[6].value.investigations ?? []);
+      if (results[1].status === "fulfilled") {
+        setInvestigations(results[1].value.investigations ?? []);
       }
-
-      if (results[7].status === "fulfilled" && typeof results[7].value.temperatureC === "number") {
-        const w = results[7].value;
+      if (results[2].status === "fulfilled" && typeof results[2].value.temperatureC === "number") {
+        const w = results[2].value;
         setCityWeather({
           temp: w.temperatureC,
           condition: w.precipitationMm > 0 ? "Rain" : "Clear",
@@ -110,9 +122,8 @@ export function EarthViewHome() {
         });
         setKpi((k) => ({ ...k, aqi: w.aqiUs, weather: { temp: w.temperatureC, condition: "Cloudy", humidity: w.humidity, wind: w.windKmh } }));
       }
-
-      if (results[8].status === "fulfilled" && results[8].value.enabled) {
-        const segs = results[8].value.segments ?? [];
+      if (results[3].status === "fulfilled" && results[3].value.enabled) {
+        const segs = results[3].value.segments ?? [];
         const avg = segs.length
           ? segs.reduce((s: number, x: { currentSpeed: number; freeFlowSpeed: number }) =>
             s + (x.freeFlowSpeed > 0 ? x.currentSpeed / x.freeFlowSpeed : 1), 0) / segs.length
@@ -130,46 +141,72 @@ export function EarthViewHome() {
     }));
   }, [live.flights.length, live.ships.length]);
 
+  const counts: Record<LayerKey, number> = {
+    events: live.events.length,
+    quakes: live.quakes.length,
+    iss: live.iss.length,
+    flights: live.flights.length,
+    ships: live.ships.length,
+    webcams: live.webcams.length,
+  };
+
+  const activeToggles = useMemo(() => {
+    if (!isolate) return toggles;
+    return Object.fromEntries(
+      (Object.keys(toggles) as LayerKey[]).map((k) => [k, k === isolate]),
+    ) as Record<LayerKey, boolean>;
+  }, [toggles, isolate]);
+
+  const mapLayers = useMemo((): MapLayer[] => {
+    const out: MapLayer[] = [];
+    if (activeToggles.events) out.push({ id: "events", color: LAYER_META.events.color, items: live.events.slice(0, 300), radius: 4 });
+    if (activeToggles.quakes) out.push({ id: "quakes", color: LAYER_META.quakes.color, items: live.quakes.slice(0, 150), radius: 3 });
+    if (activeToggles.iss) out.push({ id: "iss", color: LAYER_META.iss.color, items: live.iss, radius: 6 });
+    if (activeToggles.flights) out.push({ id: "flights", color: LAYER_META.flights.color, items: live.flights.slice(0, 2000), radius: 2, icon: "plane" });
+    if (activeToggles.ships) out.push({ id: "ships", color: LAYER_META.ships.color, items: live.ships.slice(0, 500), radius: 3 });
+    if (activeToggles.webcams) out.push({ id: "webcams", color: LAYER_META.webcams.color, items: live.webcams, radius: 4 });
+    return out;
+  }, [activeToggles, live]);
+
   const activity = useMemo(
-    () => [...items, ...live.flights.slice(0, 5), ...live.ships.slice(0, 3)]
+    () => [...items, ...live.flights.slice(0, 8), ...live.ships.slice(0, 5)]
       .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
-      .slice(0, 14),
+      .slice(0, 16),
     [items, live.flights, live.ships],
   );
 
   const signals = useMemo(
-    () => [...items].filter((i) => (i.severity ?? 0) >= 5).sort((a, b) => (b.severity ?? 0) - (a.severity ?? 0)).slice(0, 6),
+    () => [...items].filter((i) => (i.severity ?? 0) >= 5).sort((a, b) => (b.severity ?? 0) - (a.severity ?? 0)).slice(0, 8),
     [items],
   );
 
-  const mapLayers = useMemo((): MapLayer[] => [
-    { id: "events", color: "#38bdf8", items: live.events.slice(0, 200), radius: 4 },
-    { id: "quakes", color: "#fb923c", items: live.quakes.slice(0, 100), radius: 3 },
-    { id: "flights", color: "#39ff8f", items: live.flights.slice(0, 400), radius: 2, icon: "plane" },
-  ], [live.events, live.quakes, live.flights]);
+  const tickerItems = useMemo(() => activity.map((i) => i.title).slice(0, 24), [activity]);
 
-  const tickerItems = useMemo(
-    () => activity.map((i) => i.title).slice(0, 20),
-    [activity],
-  );
+  const freshness = live.meta.flightsAgeSeconds != null
+    ? `${Math.round(live.meta.flightsAgeSeconds)}s ago${live.meta.flightsStale ? " · stale" : ""}`
+    : live.loading ? "loading…" : "—";
 
   return (
-    <div className="mx-auto max-w-[1600px] space-y-4 pb-10">
-      {/* Header strip */}
-      <div className="flex flex-wrap items-center gap-3">
+    <div className="-mx-4 space-y-4 pb-12 md:-mx-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-center gap-3 px-4 md:px-6">
         <div>
           <h1 className="text-lg font-semibold text-ink">Earth View</h1>
           <p className="text-[11px] text-ink-dim">GLOBAL INTELLIGENCE OS</p>
         </div>
         <Badge tone="live" pulse>● LIVE — All Systems Operational</Badge>
-        {fetchedAt && <span className="mono text-[10px] text-ink-dim">updated {timeAgo(fetchedAt)}</span>}
+        <span className="mono text-[10px] text-ink-dim">
+          flights {freshness}
+          {live.meta.hydratedMs != null && ` · ${live.meta.hydratedMs}ms hydrate`}
+        </span>
+        {fetchedAt && <span className="mono text-[10px] text-ink-dim">feeds {timeAgo(fetchedAt)}</span>}
         <Link href="/dashboard" className="ml-auto text-[11px] text-accent hover:underline">
           Open globe dashboard →
         </Link>
       </div>
 
-      {/* Row 1 — KPI strip */}
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 gap-2 px-4 md:grid-cols-4 md:px-6 xl:grid-cols-7">
         <KpiCard icon={Shield} label="Live alerts" value={kpi.alerts} sub={`${kpi.criticalAlerts} critical`} href="/settings" accent={kpi.criticalAlerts > 0 ? "text-critical" : undefined} />
         <KpiCard icon={CandlestickChart} label="Markets" value={kpi.spChange ?? "—"} sub="S&P 500" href="/markets" accent={kpi.spChange?.startsWith("+") ? "text-live" : kpi.spChange?.startsWith("-") ? "text-critical" : undefined} />
         <KpiCard icon={Ship} label="Vessels" value={kpi.vessels.toLocaleString()} sub={`${live.meta.shipsStale ? "stale" : "live"} AIS`} href="/maritime" />
@@ -179,67 +216,116 @@ export function EarthViewHome() {
         <KpiCard icon={CloudSun} label="Weather" value={cityWeather ? `${Math.round(cityWeather.temp)}°C` : "—"} sub={cityWeather?.condition ?? "Singapore"} href="/city" />
       </div>
 
-      {/* Row 2 — activity | map | signals */}
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.6fr)_minmax(0,1fr)]">
+      {/* Full-bleed map */}
+      <section className="relative h-[min(62vh,680px)] w-full overflow-hidden border-y border-line bg-black">
+        <MapView
+          layers={mapLayers}
+          defaultBasemap="dark"
+          defaultGlobe
+          autoRotate={autoRotate}
+          rotateSpeed={0.035}
+          zoom={1.5}
+          className="h-full w-full [&>div:first-child]:rounded-none [&>div:first-child]:border-0"
+        />
+
+        {/* Layers panel — top right */}
+        <div className="hud-window absolute right-3 top-3 z-10 flex w-48 flex-col gap-1 rounded-lg px-2.5 py-2">
+          <div className="mb-0.5 flex items-center justify-between">
+            <span className="text-[9px] font-medium uppercase tracking-widest text-ink-dim">Layers</span>
+            {isolate && (
+              <button type="button" onClick={() => setIsolate(null)} className="text-[9px] text-accent hover:underline">
+                show all
+              </button>
+            )}
+          </div>
+          {(Object.keys(LAYER_META) as LayerKey[]).map((key) => {
+            const meta = LAYER_META[key];
+            const on = activeToggles[key];
+            return (
+              <div key={key} className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-label={`Isolate ${meta.label}`}
+                  onClick={() => setIsolate(isolate === key ? null : key)}
+                  className="h-2.5 w-2.5 shrink-0 rounded-full border-2 transition-transform hover:scale-125"
+                  style={{
+                    borderColor: meta.color,
+                    background: on ? meta.color : "transparent",
+                    boxShadow: isolate === key ? `0 0 6px ${meta.color}` : undefined,
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setToggles((t) => ({ ...t, [key]: !t[key] }))}
+                  className="flex flex-1 items-center gap-1 text-left text-[10px] uppercase tracking-wide"
+                >
+                  <span className={on ? "text-ink" : "text-ink-dim"}>{meta.label}</span>
+                  <span className="mono ml-auto text-[9px] text-ink-dim">{counts[key]}</span>
+                </button>
+              </div>
+            );
+          })}
+          <label className="mt-1 flex cursor-pointer items-center gap-2 border-t border-line pt-1.5 text-[10px] uppercase tracking-wide text-ink-dim">
+            <input type="checkbox" checked={autoRotate} onChange={(e) => setAutoRotate(e.target.checked)} className="accent-[var(--color-live)]" />
+            Auto rotate
+          </label>
+        </div>
+      </section>
+
+      {/* Row below map — activity | signals | alerts */}
+      <div className="grid gap-3 px-4 md:grid-cols-3 md:px-6">
         <section className="rounded-lg border border-line bg-panel">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><Activity className="h-3.5 w-3.5" /> Global activity</span>
             <Badge tone="live" pulse>Live</Badge>
           </div>
-          <div className="max-h-[320px] overflow-y-auto p-1.5">
+          <div className="max-h-[220px] overflow-y-auto p-1.5">
             {activity.map((it) => (
               <div key={it.id} className="rounded-md px-2 py-1.5 hover:bg-panel-2">
                 <div className="truncate text-[12px] text-ink">{it.title}</div>
                 <div className="text-[10px] text-ink-dim">{it.source} · {timeAgo(it.timestamp)}</div>
               </div>
             ))}
-            {activity.length === 0 && <p className="px-2 py-4 text-xs text-ink-dim">Warming up feeds…</p>}
+            {activity.length === 0 && !live.loading && <p className="px-2 py-4 text-xs text-ink-dim">No activity yet — run live seeder</p>}
+            {live.loading && <p className="px-2 py-4 text-xs text-ink-dim">Hydrating from cache…</p>}
           </div>
           <Link href="/search" className="block border-t border-line px-3 py-2 text-[11px] text-accent hover:underline">View all activity →</Link>
         </section>
 
-        <section className="relative min-h-[320px] overflow-hidden rounded-lg border border-line">
-          <MapView layers={mapLayers} defaultBasemap="dark" defaultGlobe autoRotate zoom={1.8} className="h-[320px] w-full" />
-          <div className="absolute bottom-2 left-2 rounded bg-panel-hud/90 px-2 py-0.5 text-[10px] text-ink-dim backdrop-blur">
-            Geopolitical · Aviation · Quakes
+        <section className="rounded-lg border border-line bg-panel">
+          <div className="flex items-center justify-between border-b border-line px-3 py-2">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><TrendingUp className="h-3.5 w-3.5" /> Top signals</span>
+            <Link href="/search" className="text-[10px] text-accent">View all</Link>
           </div>
+          <ol className="max-h-[220px] overflow-y-auto p-2 text-[11px]">
+            {signals.map((s, i) => (
+              <li key={s.id} className="mb-1.5 flex gap-2">
+                <span className="mono text-ink-dim">{i + 1}.</span>
+                <span className="text-ink">{s.title}</span>
+              </li>
+            ))}
+          </ol>
         </section>
 
-        <section className="flex flex-col gap-3">
-          <div className="rounded-lg border border-line bg-panel">
-            <div className="flex items-center justify-between border-b border-line px-3 py-2">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><TrendingUp className="h-3.5 w-3.5" /> Top signals</span>
-              <Link href="/search" className="text-[10px] text-accent">View all</Link>
-            </div>
-            <ol className="max-h-[140px] overflow-y-auto p-2 text-[11px]">
-              {signals.map((s, i) => (
-                <li key={s.id} className="mb-1.5 flex gap-2">
-                  <span className="mono text-ink-dim">{i + 1}.</span>
-                  <span className="text-ink">{s.title}</span>
-                </li>
-              ))}
-            </ol>
+        <section className="rounded-lg border border-line bg-panel">
+          <div className="flex items-center justify-between border-b border-line px-3 py-2">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><AlertTriangle className="h-3.5 w-3.5" /> Alerts</span>
+            <Link href="/settings" className="text-[10px] text-accent">View all</Link>
           </div>
-          <div className="rounded-lg border border-line bg-panel">
-            <div className="flex items-center justify-between border-b border-line px-3 py-2">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><AlertTriangle className="h-3.5 w-3.5" /> Alerts</span>
-              <Link href="/settings" className="text-[10px] text-accent">View all</Link>
-            </div>
-            <div className="max-h-[140px] overflow-y-auto p-2">
-              {alerts.slice(0, 6).map((a, i) => (
-                <div key={i} className="mb-1.5 text-[11px]">
-                  <Badge tone={a.severity === "critical" ? "critical" : a.severity === "warning" ? "warning" : "info"}>{a.severity}</Badge>
-                  <span className="ml-1 text-ink">{a.title}</span>
-                </div>
-              ))}
-              {alerts.length === 0 && <p className="text-[11px] text-ink-dim">No active alerts</p>}
-            </div>
+          <div className="max-h-[220px] overflow-y-auto p-2">
+            {alerts.slice(0, 8).map((a, i) => (
+              <div key={i} className="mb-1.5 text-[11px]">
+                <Badge tone={a.severity === "critical" ? "critical" : a.severity === "warning" ? "warning" : "info"}>{a.severity}</Badge>
+                <span className="ml-1 text-ink">{a.title}</span>
+              </div>
+            ))}
+            {alerts.length === 0 && <p className="text-[11px] text-ink-dim">No active alerts</p>}
           </div>
         </section>
       </div>
 
-      {/* Row 3 — five panels */}
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+      {/* Five panels */}
+      <div className="grid gap-3 px-4 md:grid-cols-2 md:px-6 xl:grid-cols-3 2xl:grid-cols-5">
         <Panel title="Markets" icon={CandlestickChart} href="/markets">
           {markets.slice(0, 5).map((m) => (
             <div key={m.id} className="flex justify-between text-[11px]">

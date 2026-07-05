@@ -169,13 +169,14 @@ interface AdsbAircraft {
  * serverless egress IPs like Vercel's). Queries a radius around each region's
  * center; several probe points approximate the region bbox.
  */
-async function fetchAdsbLol(region: string): Promise<Item[]> {
+async function fetchAdsbLol(region: string, probesOverride?: [number, number][]): Promise<Item[]> {
   const r = REGIONS[region] ?? REGIONS.europe;
+  const probes = probesOverride ?? r.probes;
   const seen = new Map<string, AdsbAircraft>();
   const batchSize = region === "global" ? 14 : 10;
 
-  for (let i = 0; i < r.probes.length; i += batchSize) {
-    const batch = r.probes.slice(i, i + batchSize);
+  for (let i = 0; i < probes.length; i += batchSize) {
+    const batch = probes.slice(i, i + batchSize);
     const results = await Promise.allSettled(
       batch.map(async ([lat, lon]) => {
         const res = await fetchWithTimeout(
@@ -229,13 +230,86 @@ async function fetchAdsbLol(region: string): Promise<Item[]> {
   });
 }
 
-export async function fetchFlights(region: string): Promise<Item[]> {
+interface WingbitsFlight {
+  icao24?: string;
+  callsign?: string;
+  latitude?: number;
+  longitude?: number;
+  barometricAltitude?: number;
+  groundSpeed?: number;
+  trueTrack?: number;
+  aircraftType?: string;
+}
+
+/** Wingbits global feed — single fast API call (World Monitor pattern). Requires WINGBITS_API_KEY. */
+async function fetchWingbits(region: string): Promise<Item[]> {
+  const key = process.env.WINGBITS_API_KEY;
+  if (!key) throw new Error("WINGBITS_API_KEY not set");
+  const relay = process.env.WS_RELAY_URL?.replace(/\/$/, "");
+  const headers: Record<string, string> = relay && process.env.RELAY_SHARED_SECRET
+    ? { [process.env.RELAY_AUTH_HEADER ?? "x-relay-key"]: process.env.RELAY_SHARED_SECRET }
+    : { Authorization: `Bearer ${key}` };
+  const url = relay
+    ? `${relay}/wingbits/track?limit=8000`
+    : "https://customer-api.wingbits.com/v1/flights?limit=8000";
+  const res = await fetchWithTimeout(url, { timeoutMs: 20_000, headers });
+  if (!res.ok) throw new Error(`Wingbits HTTP ${res.status}`);
+  const data = await res.json();
+  const flights: WingbitsFlight[] = Array.isArray(data) ? data : (data.flights ?? data.data ?? []);
+  const r = REGIONS[region] ?? REGIONS.global;
+  return flights
+    .filter((f) => typeof f.latitude === "number" && typeof f.longitude === "number")
+    .slice(0, 8000)
+    .map((f): Item => {
+      const callsign = (f.callsign ?? "").trim() || (f.icao24 ?? "UNK").toUpperCase();
+      return {
+        id: `flight:${f.icao24 ?? callsign}`,
+        module: "aviation",
+        connectorId: "opensky_states",
+        title: callsign,
+        summary: `${callsign}${f.aircraftType ? ` · ${f.aircraftType}` : ""} · alt ${f.barometricAltitude ? Math.round(f.barometricAltitude) + " m" : "n/a"}`,
+        source: "Wingbits",
+        url: f.icao24 ? `https://globe.adsb.lol/?icao=${f.icao24}` : "https://wingbits.com",
+        timestamp: new Date().toISOString(),
+        lat: f.latitude!,
+        lon: f.longitude!,
+        tags: ["flight", r.label.toLowerCase()],
+        region: r.label,
+        entities: [{ name: callsign, type: "aircraft" }],
+        contentPolicy: "full_cache",
+        extra: {
+          icao24: f.icao24,
+          aircraftType: f.aircraftType,
+          altitudeM: f.barometricAltitude,
+          heading: f.trueTrack ?? 0,
+        },
+      };
+    });
+}
+
+export type FlightFetchMode = "fast" | "full";
+
+export async function fetchFlights(region: string, mode: FlightFetchMode = "full"): Promise<Item[]> {
   const r = REGIONS[region] ?? REGIONS.europe;
-  if (!r.bbox) return fetchAdsbLol(region); // global: probes only
+
+  if (region === "global" && process.env.WINGBITS_API_KEY) {
+    try {
+      return await fetchWingbits(region);
+    } catch {
+      /* fall through to adsb.lol */
+    }
+  }
+
+  if (!r.bbox) {
+    const probes = mode === "fast" ? HUB_PROBES : r.probes;
+    return fetchAdsbLol(region, probes);
+  }
+
   try {
     return await fetchOpenSky(region);
   } catch {
-    return await fetchAdsbLol(region);
+    const probes = mode === "fast" ? r.probes.slice(0, Math.min(6, r.probes.length)) : r.probes;
+    return fetchAdsbLol(region, probes);
   }
 }
 

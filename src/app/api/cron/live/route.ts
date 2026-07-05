@@ -3,7 +3,7 @@ import { seedLiveDomains } from "@/lib/live/seed-cron";
 import { trackApiRequest } from "@/lib/usage/tracker";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 function authorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET ?? (process.env.ARGUS_ADMIN_SECRET ?? process.env.EARTHOS_ADMIN_SECRET);

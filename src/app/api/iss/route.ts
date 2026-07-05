@@ -1,15 +1,29 @@
 import { NextResponse } from "next/server";
 import { fetchIss } from "@/lib/connectors";
+import { readLive } from "@/lib/live/store";
 
 export const dynamic = "force-dynamic";
 
+type IssPosition = Awaited<ReturnType<typeof fetchIss>>;
+
 export async function GET() {
-  try {
-    return NextResponse.json(await fetchIss());
-  } catch (err) {
+  const result = await readLive<IssPosition | null>(
+    "iss:position",
+    fetchIss,
+    { ttlSeconds: 30, source: "wheretheiss.at", fallback: null, coldTimeoutMs: 6_000 },
+  );
+
+  if (!result.data) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "fetch failed" },
-      { status: 502 },
+      { error: "ISS position unavailable", stale: result.stale },
+      { status: result.cold ? 503 : 502 },
     );
   }
+
+  return NextResponse.json({
+    ...result.data,
+    stale: result.stale,
+    ageSeconds: result.ageSeconds == null ? null : Math.round(result.ageSeconds),
+    updatedAt: result.updatedAt,
+  });
 }

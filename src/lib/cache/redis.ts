@@ -13,7 +13,7 @@ async function redisEnabled(): Promise<boolean> {
 }
 
 export async function cacheGet<T>(key: string): Promise<T | null> {
-  const fullKey = `earthos:cache:${key}`;
+  const fullKey = `argus:cache:${key}`;
 
   if (await redisEnabled()) {
     try {
@@ -42,7 +42,7 @@ export async function cacheGet<T>(key: string): Promise<T | null> {
 }
 
 export async function cacheSet(key: string, value: unknown, ttlSeconds: number): Promise<void> {
-  const fullKey = `earthos:cache:${key}`;
+  const fullKey = `argus:cache:${key}`;
   const serialized = JSON.stringify(value);
 
   if (await redisEnabled()) {
@@ -63,7 +63,7 @@ export async function cacheSet(key: string, value: unknown, ttlSeconds: number):
 }
 
 export async function cacheDel(key: string): Promise<void> {
-  const fullKey = `earthos:cache:${key}`;
+  const fullKey = `argus:cache:${key}`;
   local.delete(fullKey);
   if (await redisEnabled()) {
     try {

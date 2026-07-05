@@ -10,6 +10,37 @@ export interface GlobeLiveMeta {
   shipsUpdatedAt?: string | null;
   shipsStale?: boolean;
   shipsCount?: number;
+  hydratedMs?: number;
+}
+
+interface BootstrapPayload {
+  flights?: { global?: Item[]; stale?: boolean; ageSeconds?: number | null; updatedAt?: string | null };
+  ships?: { items?: Item[]; stale?: boolean; ageSeconds?: number | null };
+  webcams?: { items?: Array<{ id: string; title: string; place?: string; lat?: number; lon?: number; url: string; provider: string }> };
+  iss?: { lat: number; lon: number; altitudeKm?: number; velocityKmh?: number; timestamp?: string } | null;
+  modules?: Record<string, { items?: Item[]; stale?: boolean }>;
+  hydratedMs?: number;
+}
+
+function webcamToItem(w: {
+  id: string; title: string; place?: string; lat?: number; lon?: number; url: string; provider: string;
+}): Item | null {
+  if (typeof w.lat !== "number" || typeof w.lon !== "number") return null;
+  return {
+    id: `webcam:${w.id}`,
+    module: "live",
+    connectorId: "webcams",
+    title: w.place ? `${w.title} — ${w.place}` : w.title,
+    summary: w.provider,
+    source: w.provider,
+    timestamp: new Date().toISOString(),
+    lat: w.lat,
+    lon: w.lon,
+    url: w.url,
+    tags: ["webcam"],
+    entities: [{ name: w.place ?? w.title, type: "location" }],
+    contentPolicy: "metadata_only",
+  };
 }
 
 export function useGlobeLiveData(region = "global") {
@@ -22,7 +53,68 @@ export function useGlobeLiveData(region = "global") {
   const [meta, setMeta] = useState<GlobeLiveMeta>({});
   const [loading, setLoading] = useState(true);
 
+  const applyBootstrap = useCallback((data: BootstrapPayload) => {
+    const earthItems = data.modules?.earth?.items ?? [];
+    setQuakes(earthItems.filter((i) => i.tags.includes("earthquake")));
+    setEvents(earthItems.filter((i) => typeof i.lat === "number" && !i.tags.includes("earthquake")));
+
+    const newsItems = data.modules?.news?.items ?? [];
+    const conflictItems = data.modules?.conflict?.items ?? [];
+    setEvents((prev) => [
+      ...prev,
+      ...newsItems.filter((i) => typeof i.lat === "number"),
+      ...conflictItems.filter((i) => typeof i.lat === "number"),
+    ]);
+
+    setFlights(data.flights?.global ?? []);
+    setShips(data.ships?.items ?? []);
+    setWebcams(
+      (data.webcams?.items ?? [])
+        .map(webcamToItem)
+        .filter((x): x is Item => x != null),
+    );
+
+    if (data.iss && typeof data.iss.lat === "number") {
+      setIss([{
+        id: "iss",
+        module: "space",
+        connectorId: "iss",
+        title: "International Space Station",
+        summary: data.iss.altitudeKm != null
+          ? `Altitude ${data.iss.altitudeKm.toFixed(0)} km · ${data.iss.velocityKmh?.toFixed(0)} km/h`
+          : `Position ${data.iss.lat.toFixed(2)}°, ${data.iss.lon.toFixed(2)}°`,
+        source: "wheretheiss.at",
+        timestamp: data.iss.timestamp ?? new Date().toISOString(),
+        lat: data.iss.lat,
+        lon: data.iss.lon,
+        tags: ["iss"],
+        entities: [{ name: "ISS", type: "satellite" }],
+        contentPolicy: "full_cache",
+      }]);
+    }
+
+    setMeta({
+      flightsUpdatedAt: data.flights?.updatedAt ?? null,
+      flightsStale: Boolean(data.flights?.stale),
+      flightsAgeSeconds: data.flights?.ageSeconds ?? null,
+      shipsStale: Boolean(data.ships?.stale),
+      shipsCount: data.ships?.items?.length ?? 0,
+      hydratedMs: data.hydratedMs,
+    });
+    setLoading(false);
+  }, []);
+
   const load = useCallback(async () => {
+    try {
+      const res = await fetch("/api/bootstrap");
+      if (res.ok) {
+        applyBootstrap(await res.json());
+        return;
+      }
+    } catch {
+      /* fallback to individual endpoints */
+    }
+
     const [earthRes, flightRes, shipRes, issRes, webcamRes] = await Promise.allSettled([
       fetch("/api/modules/earth").then((r) => r.json()),
       fetch(`/api/flights?region=${region}`).then((r) => r.json()),
@@ -36,7 +128,6 @@ export function useGlobeLiveData(region = "global") {
       setQuakes(items.filter((i) => i.tags.includes("earthquake")));
       setEvents(items.filter((i) => typeof i.lat === "number" && !i.tags.includes("earthquake")));
     }
-
     if (flightRes.status === "fulfilled") {
       const d = flightRes.value;
       setFlights((d.items ?? []) as Item[]);
@@ -47,65 +138,32 @@ export function useGlobeLiveData(region = "global") {
         flightsAgeSeconds: d.ageSeconds ?? null,
       }));
     }
-
     if (shipRes.status === "fulfilled") {
-      const d = shipRes.value;
-      setShips((d.items ?? []) as Item[]);
-      setMeta((m) => ({
-        ...m,
-        shipsUpdatedAt: d.updatedAt ?? null,
-        shipsStale: Boolean(d.stale),
-        shipsCount: (d.items ?? []).length,
-      }));
+      setShips((shipRes.value.items ?? []) as Item[]);
     }
-
     if (issRes.status === "fulfilled") {
       const d = issRes.value;
       if (typeof d.lat === "number") {
         setIss([{
-          id: "iss",
-          module: "space",
-          connectorId: "iss",
+          id: "iss", module: "space", connectorId: "iss",
           title: "International Space Station",
-          summary: d.altitudeKm != null
-            ? `Altitude ${d.altitudeKm.toFixed(0)} km · ${d.velocityKmh?.toFixed(0)} km/h`
-            : `Position ${d.lat.toFixed(2)}°, ${d.lon.toFixed(2)}°`,
-          source: "wheretheiss.at",
-          timestamp: d.timestamp ?? new Date().toISOString(),
-          lat: d.lat,
-          lon: d.lon,
-          tags: ["iss"],
+          summary: `Position ${d.lat.toFixed(2)}°, ${d.lon.toFixed(2)}°`,
+          source: "wheretheiss.at", timestamp: d.timestamp ?? new Date().toISOString(),
+          lat: d.lat, lon: d.lon, tags: ["iss"],
           entities: [{ name: "ISS", type: "satellite" }],
           contentPolicy: "full_cache",
         }]);
       }
     }
-
     if (webcamRes.status === "fulfilled") {
-      const items = ((webcamRes.value.items ?? []) as Array<{
-        id: string; title: string; place?: string; lat?: number; lon?: number; url: string; provider: string;
-      }>)
-        .filter((w) => typeof w.lat === "number" && typeof w.lon === "number")
-        .map((w) => ({
-          id: `webcam:${w.id}`,
-          module: "live",
-          connectorId: "webcams",
-          title: w.place ? `${w.title} — ${w.place}` : w.title,
-          summary: w.provider,
-          source: w.provider,
-          timestamp: new Date().toISOString(),
-          lat: w.lat!,
-          lon: w.lon!,
-          url: w.url,
-          tags: ["webcam"],
-          entities: [{ name: w.place ?? w.title, type: "location" as const }],
-          contentPolicy: "metadata_only" as const,
-        }));
-      setWebcams(items);
+      setWebcams(
+        ((webcamRes.value.items ?? []) as Array<{ id: string; title: string; place?: string; lat?: number; lon?: number; url: string; provider: string }>)
+          .map(webcamToItem)
+          .filter((x): x is Item => x != null),
+      );
     }
-
     setLoading(false);
-  }, [region]);
+  }, [applyBootstrap, region]);
 
   useEffect(() => {
     load();
