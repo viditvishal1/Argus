@@ -27,7 +27,7 @@ export function Badge({
     <span
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wide ${TONE_CLASSES[tone]}`}
     >
-      {pulse && <span className="hud-pulse h-1.5 w-1.5 rounded-full bg-current" />}
+      {pulse && <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-current" />}
       {children}
     </span>
   );

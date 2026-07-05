@@ -4,6 +4,7 @@ import { Nav } from "@/components/Nav";
 import { GlobalSearchBar } from "@/components/GlobalSearchBar";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { CommandPalette } from "@/components/CommandPalette";
+import { MotionPause } from "@/components/MotionPause";
 
 export const metadata: Metadata = {
   title: "Argus — Open Intelligence Operating System",
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
       <body className="min-h-screen">
+        <MotionPause />
         <div className="flex min-h-screen">
           <Nav />
           <div className="flex min-w-0 flex-1 flex-col">

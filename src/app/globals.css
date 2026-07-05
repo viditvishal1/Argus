@@ -1,10 +1,9 @@
 @import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
 
-/* Argus design system — dark "command center" default (neon-green accent on
-   near-black, matching the auto-rotating globe HUD) plus a warm light theme
-   (terracotta accent on off-white). Every legacy variable name is preserved;
-   the status/HUD tokens are additive. */
+/* Argus design system — light theme tokens are isolated under [data-theme="light"].
+   Dark theme follows World Monitor's shipped palette (Section 2–5 of design brief).
+   Legacy --t-* aliases map to WM tokens so existing Tailwind utilities keep working. */
 
 @theme inline {
   --color-body: var(--t-body);
@@ -24,25 +23,7 @@
   --color-info: var(--t-info);
 }
 
-:root,
-[data-theme="dark"] {
-  --t-body: #05070a;
-  --t-panel: #0b0f14;
-  --t-panel-2: #11161d;
-  --t-panel-hud: rgba(10, 14, 18, 0.82);
-  --t-line: #1c2530;
-  --t-line-strong: #2a3542;
-  --t-ink: #e7ede2;
-  --t-ink-dim: #7c8a80;
-  --t-soft: #a9b6ac;
-  --t-accent: #39ff8f;
-  --t-accent-2: #4cc2ff;
-  --t-critical: #ff4d5e;
-  --t-warning: #ffb545;
-  --t-live: #39ff8f;
-  --t-info: #8b8bff;
-  color-scheme: dark;
-}
+/* ─── Light theme (UNTOUCHED) ─────────────────────────────────────────────── */
 
 [data-theme="light"] {
   --t-body: #f3f1ec;
@@ -63,6 +44,200 @@
   color-scheme: light;
 }
 
+[data-theme="light"] .globe-backdrop {
+  background: radial-gradient(circle at 50% 35%, #ffffff 0%, #f3f1ec 55%, #eae6da 100%);
+}
+
+/* ─── Dark theme — World Monitor design tokens ────────────────────────────── */
+
+[data-theme="dark"] {
+  /* Backgrounds */
+  --bg: #0a0a0a;
+  --bg-secondary: #111111;
+  --surface: #141414;
+  --surface-hover: #1e1e1e;
+  --surface-active: #1a1a2e;
+
+  /* Borders */
+  --border: #2a2a2a;
+  --border-strong: #444444;
+  --border-subtle: #1a1a1a;
+
+  /* Text */
+  --text: #e8e8e8;
+  --text-secondary: #cccccc;
+  --text-dim: #888888;
+  --text-muted: #666666;
+  --text-faint: #555555;
+  --accent: #ffffff;
+
+  /* Overlays */
+  --overlay-subtle: rgba(255, 255, 255, 0.03);
+  --overlay-light: rgba(255, 255, 255, 0.05);
+  --overlay-medium: rgba(255, 255, 255, 0.10);
+  --overlay-heavy: rgba(255, 255, 255, 0.20);
+  --shadow-color: rgba(0, 0, 0, 0.5);
+
+  /* Map canvas */
+  --map-bg: #020a08;
+  --map-grid: #0a2a20;
+  --map-country: #0a2018;
+  --map-stroke: #0f5040;
+
+  /* Severity / threat */
+  --severity-critical: #ff4444;
+  --severity-high: #ff8800;
+  --severity-elevated: #ffaa00;
+  --severity-normal: #44aa44;
+  --severity-low: #3388ff;
+  --severity-info: #3b82f6;
+  --severity-positive: #44ff88;
+
+  /* DEFCON levels */
+  --level-1: #ff0040;
+  --level-2: #ff4400;
+  --level-3: #ffaa00;
+  --level-4: #00aaff;
+  --level-5: #2d8a6e;
+
+  /* Live/status */
+  --status-live: #44ff88;
+  --status-cached: #ffaa00;
+  --status-unavailable: #ff4444;
+
+  /* Typography — monospace-first terminal feel */
+  --font-mono: "SF Mono", "Monaco", "Cascadia Code", "Fira Code",
+    "DejaVu Sans Mono", "Liberation Mono", monospace;
+  --font-body: var(--font-mono);
+
+  /* Legacy aliases → WM tokens (existing components) */
+  --t-body: var(--bg);
+  --t-panel: var(--surface);
+  --t-panel-2: var(--surface-hover);
+  --t-panel-hud: color-mix(in srgb, var(--surface) 88%, transparent);
+  --t-line: var(--border);
+  --t-line-strong: var(--border-strong);
+  --t-ink: var(--text);
+  --t-ink-dim: var(--text-dim);
+  --t-soft: var(--text-secondary);
+  --t-accent: var(--status-live);
+  --t-accent-2: var(--severity-low);
+  --t-critical: var(--severity-critical);
+  --t-warning: var(--severity-elevated);
+  --t-live: var(--status-live);
+  --t-info: var(--severity-info);
+
+  color-scheme: dark;
+}
+
+[data-theme="dark"] body {
+  font-family: var(--font-body);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .globe-backdrop {
+  background: radial-gradient(
+    circle at 50% 35%,
+    var(--map-country) 0%,
+    var(--map-bg) 55%,
+    #000 100%
+  );
+}
+
+/* ─── Panel / card system (dark only) ─────────────────────────────────────── */
+
+[data-theme="dark"] .panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+[data-theme="dark"] .panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+[data-theme="dark"] .panel-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent 100%);
+}
+
+[data-theme="dark"] .panel-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+[data-theme="dark"] .panel-tab {
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .panel-tab:hover {
+  color: var(--text);
+  background: var(--overlay-subtle);
+}
+
+[data-theme="dark"] .panel-tab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  font-weight: 600;
+}
+
+[data-theme="dark"] .panels-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-auto-flow: row dense;
+  grid-auto-rows: minmax(200px, 380px);
+  gap: 4px;
+  padding: 4px;
+}
+
+/* ─── Map marker domain colors (dark) ─────────────────────────────────────── */
+
+[data-theme="dark"] .marker--quake { color: var(--severity-elevated); }
+[data-theme="dark"] .marker--flight { color: var(--severity-info); }
+[data-theme="dark"] .marker--vessel { color: var(--severity-low); }
+[data-theme="dark"] .marker--conflict { color: var(--severity-critical); }
+[data-theme="dark"] .marker--cyber { color: var(--severity-high); }
+
+[data-theme="dark"] .marker-pulse {
+  position: relative;
+}
+
+[data-theme="dark"] .marker-pulse::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  animation: live-pulse-ring 2s ease-out infinite;
+}
+
+/* ─── Shared base (both themes) ───────────────────────────────────────────── */
+
 body {
   background: var(--t-body);
   color: var(--t-ink);
@@ -70,42 +245,160 @@ body {
     "Helvetica Neue", sans-serif;
 }
 
-/* Globe backdrop — swaps per theme, referenced by GlobeDashboard / Earth View */
-.globe-backdrop {
-  background: radial-gradient(circle at 50% 35%, #0d1a14 0%, #05070a 60%, #000 100%);
-}
-[data-theme="light"] .globe-backdrop {
-  background: radial-gradient(circle at 50% 35%, #ffffff 0%, #f3f1ec 55%, #eae6da 100%);
-}
-
-/* HUD floating windows */
 .hud-window {
   background: var(--t-panel-hud);
   backdrop-filter: blur(12px);
   border: 1px solid var(--t-line);
 }
 
-/* Status dot pulse — used for "live" badges/markers only */
-@keyframes hud-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-.hud-pulse { animation: hud-pulse 1.6s ease-in-out infinite; }
+/* ─── Animation library (keyframes global; usage classes dark-aware) ─────── */
 
-/* Bottom ticker marquee */
-.ticker-track {
-  display: inline-flex;
-  gap: 2.5rem;
-  animation: ticker-scroll 45s linear infinite;
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }
-.ticker-track:hover { animation-play-state: paused; }
+
+@keyframes live-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes count-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+@keyframes live-pulse-ring {
+  0%, 100% { opacity: 0; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(1.9); }
+}
+
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+@keyframes radar-sweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 @keyframes ticker-scroll {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
 }
 
+/* Legacy alias */
+@keyframes hud-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+[data-theme="dark"] .pulse-dot {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+[data-theme="dark"] .live-blink {
+  animation: live-blink 1.5s ease-in-out infinite;
+}
+
+[data-theme="dark"] .hud-pulse {
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+[data-theme="dark"] .count-bump {
+  animation: count-bump 0.35s ease forwards;
+}
+
+[data-theme="dark"] .skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-hover);
+  border-radius: 4px;
+}
+
+[data-theme="dark"] .skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, var(--overlay-medium), transparent);
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+[data-theme="dark"] .radar-sweep {
+  animation: radar-sweep 4s linear infinite;
+}
+
+[data-theme="dark"] .spin {
+  animation: spin 0.8s linear infinite;
+}
+
+[data-theme="dark"] .live-num {
+  font-variant-numeric: tabular-nums;
+}
+
+.ticker-track {
+  display: inline-flex;
+  gap: 2.5rem;
+  animation: ticker-scroll 45s linear infinite;
+}
+
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+/* Motion: 200ms theme transitions, 150ms interactive (dark) */
+[data-theme="dark"] a,
+[data-theme="dark"] button,
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] .panel,
+[data-theme="dark"] .panel-tab,
+[data-theme="dark"] .hud-window,
+[data-theme="dark"] [class*="border-line"],
+[data-theme="dark"] [class*="bg-panel"] {
+  transition-property: color, background-color, border-color, box-shadow, opacity;
+  transition-duration: 200ms;
+  transition-timing-function: ease;
+}
+
+[data-theme="dark"] .panel-tab,
+[data-theme="dark"] button,
+[data-theme="dark"] a {
+  transition-duration: 150ms;
+}
+
+/* Pause all decorative motion when tab hidden or idle */
+body.animations-paused *,
+body.animations-paused *::before,
+body.animations-paused *::after {
+  animation-play-state: paused !important;
+  transition: none !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .hud-pulse, .ticker-track { animation: none; }
+  [data-theme="dark"] .pulse-dot,
+  [data-theme="dark"] .live-blink,
+  [data-theme="dark"] .hud-pulse,
+  [data-theme="dark"] .count-bump,
+  [data-theme="dark"] .marker-pulse::after,
+  [data-theme="dark"] .radar-sweep,
+  [data-theme="dark"] .skeleton::after,
+  .ticker-track {
+    animation: none !important;
+  }
+
+  [data-theme="dark"] .pulse-dot,
+  [data-theme="dark"] .live-blink,
+  [data-theme="dark"] .hud-pulse {
+    opacity: 0.85;
+  }
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -116,9 +409,15 @@ body {
 }
 ::-webkit-scrollbar-track { background: transparent; }
 
-.mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
 
-/* In-app rendered markdown (READMEs, analyst answers) */
+[data-theme="dark"] .mono {
+  font-family: var(--font-mono);
+}
+
+/* In-app rendered markdown */
 .prose-earthos { line-height: 1.65; font-size: 0.875rem; }
 .prose-earthos h1, .prose-earthos h2, .prose-earthos h3 {
   color: var(--t-ink); font-weight: 600; margin: 1.1em 0 0.4em;

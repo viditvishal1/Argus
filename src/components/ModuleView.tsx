@@ -6,10 +6,11 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { LoaderCircle, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import type { Item } from "@/lib/types";
 import { applyFilters, FilterBar, readFilters } from "@/components/FilterBar";
 import { ReaderPane } from "@/components/ReaderPane";
+import { Skeleton } from "@/components/Skeleton";
 
 export function ItemCard({
   item, selected, onSelect, highlight,
@@ -120,8 +121,9 @@ function ModuleViewInner({
       )}
 
       {!items && !error ? (
-        <div className="flex items-center gap-2 py-10 text-sm text-ink-dim">
-          <LoaderCircle className="h-4 w-4 animate-spin" /> Contacting connectors…
+        <div className="py-6">
+          <Skeleton rows={6} />
+          <p className="mt-3 text-[11px] text-ink-dim">Reading from cache…</p>
         </div>
       ) : (
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -166,7 +168,7 @@ function ModuleViewInner({
 
 export function ModuleView(props: Parameters<typeof ModuleViewInner>[0]) {
   return (
-    <Suspense fallback={<div className="py-10 text-sm text-ink-dim">Loading…</div>}>
+    <Suspense fallback={<div className="py-6"><Skeleton rows={4} /></div>}>
       <ModuleViewInner {...props} />
     </Suspense>
   );

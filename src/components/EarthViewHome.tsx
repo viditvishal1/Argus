@@ -12,6 +12,8 @@ import {
 import type { Item } from "@/lib/types";
 import { MapView, type MapLayer } from "@/components/MapView";
 import { Badge } from "@/components/Badge";
+import { LiveNumber } from "@/components/LiveNumber";
+import { Skeleton } from "@/components/Skeleton";
 import { timeAgo } from "@/components/ModuleView";
 import { useGlobeLiveData } from "@/lib/hooks/useGlobeLiveData";
 
@@ -52,7 +54,9 @@ function KpiCard({
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-ink-dim">
         <Icon className="h-3.5 w-3.5" /> {label}
       </div>
-      <div className={`mono mt-1 text-xl font-semibold ${accent ?? "text-ink"}`}>{value}</div>
+      <div className={`mono mt-1 text-xl font-semibold ${accent ?? "text-ink"}`}>
+        {typeof value === "number" ? <LiveNumber value={value} /> : value}
+      </div>
       {sub && <div className="mt-0.5 text-[10px] text-ink-dim">{sub}</div>}
     </Link>
   );
@@ -274,9 +278,9 @@ export function EarthViewHome() {
 
       {/* Row below map — activity | signals | alerts */}
       <div className="grid gap-3 px-4 md:grid-cols-3 md:px-6">
-        <section className="rounded-lg border border-line bg-panel">
-          <div className="flex items-center justify-between border-b border-line px-3 py-2">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><Activity className="h-3.5 w-3.5" /> Global activity</span>
+        <section className="panel rounded-lg">
+          <div className="panel-header">
+            <span className="flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Global activity</span>
             <Badge tone="live" pulse>Live</Badge>
           </div>
           <div className="max-h-[220px] overflow-y-auto p-1.5">
@@ -286,16 +290,20 @@ export function EarthViewHome() {
                 <div className="text-[10px] text-ink-dim">{it.source} · {timeAgo(it.timestamp)}</div>
               </div>
             ))}
+            {live.loading && (
+              <div className="px-2 py-4">
+                <Skeleton rows={4} />
+              </div>
+            )}
             {activity.length === 0 && !live.loading && <p className="px-2 py-4 text-xs text-ink-dim">No activity yet — run live seeder</p>}
-            {live.loading && <p className="px-2 py-4 text-xs text-ink-dim">Hydrating from cache…</p>}
           </div>
           <Link href="/search" className="block border-t border-line px-3 py-2 text-[11px] text-accent hover:underline">View all activity →</Link>
         </section>
 
-        <section className="rounded-lg border border-line bg-panel">
-          <div className="flex items-center justify-between border-b border-line px-3 py-2">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><TrendingUp className="h-3.5 w-3.5" /> Top signals</span>
-            <Link href="/search" className="text-[10px] text-accent">View all</Link>
+        <section className="panel rounded-lg">
+          <div className="panel-header">
+            <span className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Top signals</span>
+            <Link href="/search" className="normal-case tracking-normal text-accent">View all</Link>
           </div>
           <ol className="max-h-[220px] overflow-y-auto p-2 text-[11px]">
             {signals.map((s, i) => (
@@ -307,10 +315,10 @@ export function EarthViewHome() {
           </ol>
         </section>
 
-        <section className="rounded-lg border border-line bg-panel">
-          <div className="flex items-center justify-between border-b border-line px-3 py-2">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><AlertTriangle className="h-3.5 w-3.5" /> Alerts</span>
-            <Link href="/settings" className="text-[10px] text-accent">View all</Link>
+        <section className="panel rounded-lg">
+          <div className="panel-header">
+            <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Alerts</span>
+            <Link href="/settings" className="normal-case tracking-normal text-accent">View all</Link>
           </div>
           <div className="max-h-[220px] overflow-y-auto p-2">
             {alerts.slice(0, 8).map((a, i) => (
@@ -386,10 +394,12 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <div className="rounded-lg border border-line bg-panel p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="flex items-center gap-1.5 text-xs font-medium text-ink"><Icon className="h-3.5 w-3.5" /> {title}</span>
-        <Link href={href} className="text-[10px] text-accent hover:underline">Open →</Link>
+    <div className="panel rounded-lg p-3">
+      <div className="panel-header -mx-3 -mt-3 mb-2 border-b border-line px-3 py-2">
+        <span className="flex items-center gap-1.5 normal-case tracking-normal text-xs font-medium text-ink">
+          <Icon className="h-3.5 w-3.5" /> {title}
+        </span>
+        <Link href={href} className="normal-case tracking-normal text-[10px] text-accent hover:underline">Open →</Link>
       </div>
       <div className="space-y-1">{children}</div>
     </div>

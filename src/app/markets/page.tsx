@@ -4,10 +4,11 @@
 // and CoinGecko-style in-app asset detail (overview, chart, stats, news).
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, LoaderCircle, TrendingUp } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, TrendingUp } from "lucide-react";
 import type { Item } from "@/lib/types";
 import { ItemCard, timeAgo } from "@/components/ModuleView";
 import { PriceChart } from "@/components/PriceChart";
+import { Skeleton } from "@/components/Skeleton";
 
 type Tab = "crypto" | "stocks" | "indices";
 
@@ -183,23 +184,31 @@ export default function MarketsPage() {
   [filtered]);
 
   return (
-    <div className="mx-auto max-w-7xl">
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="flex items-center gap-2 text-lg font-semibold text-ink">
-          <TrendingUp className="h-5 w-5 text-emerald-500" /> Markets
+    <div className="panel mx-auto max-w-7xl rounded-lg">
+      <div className="panel-header">
+        <h1 className="flex items-center gap-2 normal-case tracking-normal text-xs font-medium text-ink">
+          <TrendingUp className="h-4 w-4 text-live" /> Markets
         </h1>
-        <div className="flex rounded-lg border border-line bg-panel p-0.5">
-          {(["crypto", "stocks", "indices"] as Tab[]).map((t) => (
-            <button key={t} onClick={() => { setTab(t); setSelected(null); }}
-              className={`rounded-md px-3 py-1.5 text-xs capitalize ${tab === t ? "bg-panel-2 text-ink" : "text-ink-dim hover:text-ink"}`}>
-              {t}
-            </button>
-          ))}
-        </div>
+        {fetchedAt && <span className="normal-case tracking-normal">Updated {timeAgo(fetchedAt)}</span>}
+      </div>
+      <div className="panel-tabs">
+        {(["crypto", "stocks", "indices"] as Tab[]).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => { setTab(t); setSelected(null); }}
+            className={`panel-tab capitalize ${tab === t ? "active" : ""}`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-3 border-b border-line px-3 py-2">
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search instruments…"
           className="ml-auto w-48 rounded-md border border-line bg-panel px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-dim focus:border-accent focus:outline-none" />
-        {fetchedAt && <span className="text-[11px] text-ink-dim">Updated {timeAgo(fetchedAt)}</span>}
       </div>
+
+      <div className="p-4">
 
       {!loading && movers.length > 0 && (
         <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4">
@@ -221,7 +230,7 @@ export default function MarketsPage() {
       <div className="grid gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
         <div>
           {loading ? (
-            <div className="flex items-center gap-2 py-8 text-sm text-ink-dim"><LoaderCircle className="h-4 w-4 animate-spin" /> Loading markets…</div>
+            <Skeleton rows={8} />
           ) : (
             <div className="max-h-[70vh] overflow-y-auto rounded-lg border border-line">
               <table className="w-full text-left text-xs">
@@ -267,6 +276,7 @@ export default function MarketsPage() {
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
