@@ -1,31 +1,22 @@
 "use client";
 
-// City Digital Twin — interactive 2D/3D map with pin-drop geocoding,
-// layer toggles (weather, air quality, news, traffic/streets), no top metric cards.
+// City Digital Twin — interactive map with pin-drop geocoding,
+// layer toggles (weather, air quality, news, streets). Live traffic requires a provider (Phase 3).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CloudSun, MapPin, Newspaper, TrafficCone, Wind } from "lucide-react";
+import { CloudSun, MapPin, Newspaper, Map, Wind } from "lucide-react";
 import type { Item } from "@/lib/types";
 import { MapView } from "@/components/MapView";
 import { ItemCard } from "@/components/ModuleView";
 import { ReaderPane } from "@/components/ReaderPane";
 
-const PRESETS = [
+const FALLBACK_PRESETS = [
   { id: "delhi", name: "New Delhi", lat: 28.61, lon: 77.21 },
-  { id: "mumbai", name: "Mumbai", lat: 19.08, lon: 72.88 },
-  { id: "bengaluru", name: "Bengaluru", lat: 12.97, lon: 77.59 },
   { id: "london", name: "London", lat: 51.51, lon: -0.13 },
   { id: "nyc", name: "New York", lat: 40.71, lon: -74.01 },
-  { id: "sf", name: "San Francisco", lat: 37.77, lon: -122.42 },
-  { id: "tokyo", name: "Tokyo", lat: 35.68, lon: 139.69 },
-  { id: "singapore", name: "Singapore", lat: 1.35, lon: 103.82 },
-  { id: "dubai", name: "Dubai", lat: 25.2, lon: 55.27 },
-  { id: "beijing", name: "Beijing", lat: 39.9, lon: 116.4 },
-  { id: "shanghai", name: "Shanghai", lat: 31.23, lon: 121.47 },
-  { id: "lagos", name: "Lagos", lat: 6.52, lon: 3.38 },
 ];
 
-type Layer = "weather" | "news" | "traffic" | "air";
+type Layer = "weather" | "news" | "streets" | "air";
 
 interface Weather {
   temperatureC: number; windKmh: number; humidity: number;
@@ -37,7 +28,8 @@ interface GeoPlace {
 }
 
 export default function CityPage() {
-  const [loc, setLoc] = useState(PRESETS[0]);
+  const [presets, setPresets] = useState(FALLBACK_PRESETS);
+  const [loc, setLoc] = useState(FALLBACK_PRESETS[0]);
   const [place, setPlace] = useState<GeoPlace | null>(null);
   const [layer, setLayer] = useState<Layer>("weather");
   const [weather, setWeather] = useState<Weather | null>(null);
@@ -61,6 +53,21 @@ export default function CityPage() {
   }, []);
 
   useEffect(() => {
+    fetch("/api/config/cities")
+      .then((r) => r.json())
+      .then((d) => {
+        if (Array.isArray(d.cities) && d.cities.length > 0) {
+          const mapped = d.cities.map((c: { id: string; name: string; lat: number; lon: number }) => ({
+            id: c.id, name: c.name, lat: c.lat, lon: c.lon,
+          }));
+          setPresets(mapped);
+          setLoc(mapped[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     loadPlace(loc.lat, loc.lon, loc.name);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -77,14 +84,14 @@ export default function CityPage() {
       });
   }, [loc.lat, loc.lon, label]);
 
-  const basemap = layer === "traffic" ? "streets" as const : layer === "weather" ? "satellite" as const : "dark" as const;
-  const zoom = layer === "traffic" ? 14 : mapZoom;
+  const basemap = layer === "streets" ? "streets" as const : layer === "weather" ? "satellite" as const : "dark" as const;
+  const zoom = layer === "streets" ? 14 : mapZoom;
 
   const gmapsKey = typeof window !== "undefined" ? process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY : undefined;
 
   const layerBtn = (id: Layer, icon: React.ReactNode, text: string) => (
     <button
-      onClick={() => { setLayer(id); if (id === "traffic") setMapZoom(14); }}
+      onClick={() => { setLayer(id); if (id === "streets") setMapZoom(14); }}
       className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs transition-colors ${
         layer === id ? "border-indigo-600 bg-indigo-950/40 text-indigo-300" : "border-line text-ink-dim hover:text-ink"
       }`}
@@ -133,12 +140,13 @@ export default function CityPage() {
         </div>
       );
     }
-    if (layer === "traffic") {
+    if (layer === "streets") {
       return (
         <div className="rounded-lg border border-line bg-panel p-4">
-          <h2 className="mb-2 text-sm font-semibold text-ink">Street-level — {label}</h2>
+          <h2 className="mb-2 text-sm font-semibold text-ink">Streets — {label}</h2>
           <p className="mb-3 text-xs text-ink-dim">
-            Zoom the map to street level (OSM roads). Live traffic overlays require Google Maps — set <code className="mono">NEXT_PUBLIC_GOOGLE_MAPS_KEY</code> in Settings for Street View &amp; traffic tiles.
+            Zoom the map to street level (OpenStreetMap roads). This layer shows streets only — not live traffic.
+            Traffic flow, congestion, and routing require a traffic provider (TomTom or equivalent) in Phase 3.
           </p>
           {gmapsKey ? (
             <iframe
@@ -170,12 +178,12 @@ export default function CityPage() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-3">
         <h1 className="text-lg font-semibold text-ink">City Digital Twin</h1>
-        <p className="text-xs text-ink-dim">Click the map to drop a pin · toggle layers · zoom to street level on Streets/Traffic</p>
+        <p className="text-xs text-ink-dim">Click the map to drop a pin · toggle layers · Streets layer uses OSM at max zoom</p>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="text-[11px] uppercase tracking-wide text-ink-dim">Quick jump</span>
-        {PRESETS.map((c) => (
+        {presets.map((c) => (
           <button key={c.id} onClick={() => loadPlace(c.lat, c.lon, c.name)}
             className={`rounded-full border px-2.5 py-1 text-[11px] transition-colors ${
               Math.abs(loc.lat - c.lat) < 0.05 && Math.abs(loc.lon - c.lon) < 0.05
@@ -203,7 +211,7 @@ export default function CityPage() {
         {layerBtn("weather", <CloudSun className="h-3.5 w-3.5" />, "Weather")}
         {layerBtn("air", <Wind className="h-3.5 w-3.5" />, "Air quality")}
         {layerBtn("news", <Newspaper className="h-3.5 w-3.5" />, "News")}
-        {layerBtn("traffic", <TrafficCone className="h-3.5 w-3.5" />, "Streets & traffic")}
+        {layerBtn("streets", <Map className="h-3.5 w-3.5" />, "Streets")}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">

@@ -6,10 +6,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchWithTimeout } from "@/lib/connectors/framework";
 import { readArticleCache, writeArticleCache } from "@/lib/article-cache";
 import { publish } from "@/lib/events/bus";
+import {
+  MAX_FETCH_BYTES,
+  MAX_REDIRECTS,
+  validateOutboundUrl,
+  validateRedirectUrl,
+} from "@/lib/security/url-validator";
+import { checkRateLimit, clientKey, LIMITS } from "@/lib/security/rate-limit";
+import { trackApiRequest } from "@/lib/usage/tracker";
 
 export const dynamic = "force-dynamic";
-
-const BLOCKED_HOSTS = /^(localhost|127\.|10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|0\.|\[::1\])/;
 
 function decodeEntities(s: string): string {
   return s
@@ -53,19 +59,21 @@ function isPdfUrl(url: string): boolean {
 }
 
 export async function GET(req: NextRequest) {
+  await trackApiRequest("/api/article");
+  const rl = await checkRateLimit({ key: `article:${clientKey(req)}`, ...LIMITS.article });
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "rate limit exceeded" }, { status: 429 });
+  }
+
   const url = req.nextUrl.searchParams.get("url");
   const skipCache = req.nextUrl.searchParams.get("refresh") === "1";
   if (!url) return NextResponse.json({ error: "url required" }, { status: 400 });
 
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return NextResponse.json({ error: "invalid url" }, { status: 400 });
+  const validated = validateOutboundUrl(url);
+  if (!validated.ok || !validated.url) {
+    return NextResponse.json({ error: validated.error ?? "url not allowed" }, { status: 400 });
   }
-  if (!/^https?:$/.test(parsed.protocol) || BLOCKED_HOSTS.test(parsed.hostname)) {
-    return NextResponse.json({ error: "url not allowed" }, { status: 400 });
-  }
+  const parsed = validated.url;
 
   if (!skipCache) {
     const cached = await readArticleCache(url);
@@ -90,11 +98,28 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const res = await fetchWithTimeout(url, {
-      timeoutMs: 12000,
-      headers: { Accept: "text/html,application/pdf" },
-      redirect: "follow",
-    });
+    let currentUrl = parsed.toString();
+    let res: Response | null = null;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      res = await fetchWithTimeout(currentUrl, {
+        timeoutMs: 12000,
+        headers: { Accept: "text/html,application/pdf" },
+        redirect: "manual",
+      });
+
+      if (res.status >= 300 && res.status < 400) {
+        const location = res.headers.get("location");
+        if (!location) break;
+        const redirectCheck = validateRedirectUrl(location, parsed.hostname);
+        if (!redirectCheck.ok || !redirectCheck.url) {
+          return NextResponse.json({ error: "redirect not allowed" }, { status: 400 });
+        }
+        currentUrl = redirectCheck.url.toString();
+        continue;
+      }
+      break;
+    }
+    if (!res) throw new Error("fetch failed");
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
     const ct = res.headers.get("content-type");
@@ -106,7 +131,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ...entry, cached: false });
     }
 
-    const html = (await res.text()).slice(0, 1_500_000);
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > MAX_FETCH_BYTES) {
+      return NextResponse.json({ error: "response too large" }, { status: 413 });
+    }
+    const html = new TextDecoder().decode(buf).slice(0, MAX_FETCH_BYTES);
     const { title, paragraphs } = extract(html);
     if (paragraphs.length === 0) {
       return NextResponse.json(

@@ -12,16 +12,20 @@ export default function SettingsPage() {
   const [connectors, setConnectors] = useState<ConnectorStatus[]>([]);
   const [aiEnabled, setAiEnabled] = useState<boolean | null>(null);
   const [supabase, setSupabase] = useState<{ configured?: boolean; ok?: boolean; mode?: string; error?: string; url?: string } | null>(null);
+  const [usage, setUsage] = useState<{ quotaLevel?: string; r2Enabled?: boolean; redisEnabled?: boolean } | null>(null);
   const [at, setAt] = useState<string>();
 
   useEffect(() => {
     const load = () =>
-      fetch("/api/status").then((r) => r.json()).then((d) => {
-        setConnectors(d.connectors ?? []);
-        setAiEnabled(d.aiEnabled ?? false);
-        setSupabase(d.supabase ?? null);
-        setAt(d.fetchedAt);
-      });
+      Promise.all([fetch("/api/status"), fetch("/api/usage")])
+        .then(([s, u]) => Promise.all([s.json(), u.json()]))
+        .then(([d, ud]) => {
+          setConnectors(d.connectors ?? []);
+          setAiEnabled(d.aiEnabled ?? false);
+          setSupabase(d.supabase ?? null);
+          setUsage(ud.usage ?? null);
+          setAt(d.fetchedAt);
+        });
     load();
     const t = setInterval(load, 60_000);
     return () => clearInterval(t);
@@ -67,6 +71,17 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {usage && (
+        <section className="mb-5 rounded-lg border border-line bg-panel p-4">
+          <h2 className="mb-2 text-sm font-medium text-ink">Platform usage</h2>
+          <div className="grid grid-cols-2 gap-2 text-xs text-ink-dim md:grid-cols-4">
+            <div>Quota level: <span className="text-ink">{usage.quotaLevel ?? "normal"}</span></div>
+            <div>R2 archive: <span className="text-ink">{usage.r2Enabled ? "on" : "off"}</span></div>
+            <div>Redis cache: <span className="text-ink">{usage.redisEnabled ? "on" : "off"}</span></div>
+          </div>
+        </section>
+      )}
+
       <section>
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-medium text-ink">Connectors ({connectors.length})</h2>
@@ -78,7 +93,7 @@ export default function SettingsPage() {
               <tr>
                 <th className="px-3 py-2">Module</th>
                 <th className="px-3 py-2">Source</th>
-                <th className="px-3 py-2">State</th>
+                <th className="px-3 py-2">Health</th>
                 <th className="px-3 py-2">Items</th>
                 <th className="px-3 py-2">Latency</th>
                 <th className="px-3 py-2">Last fetch</th>
@@ -90,12 +105,18 @@ export default function SettingsPage() {
                   <td className="px-3 py-2 text-ink-dim">{c.module}</td>
                   <td className="px-3 py-2 text-ink">{c.source}</td>
                   <td className="px-3 py-2">
-                    {c.keyGated ? (
+                    {c.health === "unknown" ? (
+                      <span className="text-ink-dim">unknown</span>
+                    ) : c.health === "key_gated" ? (
                       <span className="text-amber-400">key required</span>
-                    ) : c.ok ? (
-                      <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="h-3 w-3" /> ok</span>
+                    ) : c.health === "healthy" && !c.stale ? (
+                      <span className="flex items-center gap-1 text-emerald-400"><CheckCircle2 className="h-3 w-3" /> healthy</span>
+                    ) : c.health === "degraded" || c.stale ? (
+                      <span className="text-amber-400" title={c.lastError}>degraded (cached)</span>
+                    ) : c.health === "disabled" ? (
+                      <span className="text-ink-dim">disabled</span>
                     ) : (
-                      <span className="flex items-center gap-1 text-red-400" title={c.lastError}><XCircle className="h-3 w-3" /> error</span>
+                      <span className="flex items-center gap-1 text-red-400" title={c.lastError}><XCircle className="h-3 w-3" /> {c.health}</span>
                     )}
                   </td>
                   <td className="mono px-3 py-2 text-ink-dim">{c.itemCount}</td>

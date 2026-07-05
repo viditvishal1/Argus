@@ -1,11 +1,13 @@
 // Connector framework — every source implements the same lifecycle:
 //   Source → Collector → Normalizer → Content-Policy check → [Graph | Cache] → API → Client
-// Adding the 40th connector costs the same effort as the 4th: write a
-// manifest + a normalize function, register it, done.
 
 import type { ConnectorManifest, ConnectorStatus, Item } from "@/lib/types";
 import { ingestItems } from "@/lib/graph";
 import { publish } from "@/lib/events/bus";
+import { isSourceEnabled } from "@/lib/config/sources";
+import { recordConnectorRun } from "@/lib/db/platform";
+import { enqueueIngestion } from "@/lib/queue/ingestion";
+import { trackConnectorRequest } from "@/lib/usage/tracker";
 
 interface CacheEntry {
   at: number;
@@ -15,13 +17,14 @@ interface CacheEntry {
 type GlobalStore = {
   cache: Map<string, CacheEntry>;
   status: Map<string, ConnectorStatus>;
+  failures: Map<string, number>;
 };
 
-// Survives across route-handler invocations within one server process.
 const g = globalThis as unknown as { __earthos?: GlobalStore };
 const store: GlobalStore = (g.__earthos ??= {
   cache: new Map(),
   status: new Map(),
+  failures: new Map(),
 });
 
 export const connectors = new Map<
@@ -36,7 +39,6 @@ export function registerConnector(
   connectors.set(manifest.id, { manifest, collect });
 }
 
-/** Fetch JSON/text with a hard timeout so one slow free-tier API never hangs a page. */
 export async function fetchWithTimeout(
   url: string,
   init: RequestInit & { timeoutMs?: number } = {},
@@ -58,22 +60,40 @@ export async function fetchWithTimeout(
   }
 }
 
-/**
- * Run a connector through the lifecycle with per-connector isolation:
- * a failing source returns its last good cache (or []) and records the
- * error in connector status — it never throws into the page.
- */
+function setStatus(id: string, manifest: ConnectorManifest, partial: Partial<ConnectorStatus>): void {
+  const prev = store.status.get(id);
+  store.status.set(id, {
+    id,
+    module: manifest.module,
+    source: manifest.source,
+    ok: partial.ok ?? prev?.ok ?? false,
+    health: partial.health ?? prev?.health ?? "unknown",
+    keyGated: partial.keyGated ?? prev?.keyGated ?? false,
+    itemCount: partial.itemCount ?? prev?.itemCount ?? 0,
+    lastFetch: partial.lastFetch ?? prev?.lastFetch,
+    lastError: partial.lastError ?? prev?.lastError,
+    latencyMs: partial.latencyMs ?? prev?.latencyMs,
+    provider: manifest.source,
+    geographicScope: partial.geographicScope,
+    dataDelay: partial.dataDelay,
+    stale: partial.stale,
+  });
+}
+
 export async function runConnector(id: string): Promise<Item[]> {
   const c = connectors.get(id);
   if (!c) return [];
   const { manifest, collect } = c;
 
+  if (!(await isSourceEnabled(id))) {
+    setStatus(id, manifest, { ok: false, health: "disabled", keyGated: false, itemCount: 0 });
+    return [];
+  }
+
   if (manifest.requiresKey && !process.env[manifest.requiresKey]) {
-    store.status.set(id, {
-      id,
-      module: manifest.module,
-      source: manifest.source,
+    setStatus(id, manifest, {
       ok: false,
+      health: "key_gated",
       keyGated: true,
       itemCount: 0,
       lastError: `Set ${manifest.requiresKey} in .env.local to enable this source`,
@@ -81,53 +101,107 @@ export async function runConnector(id: string): Promise<Item[]> {
     return [];
   }
 
+  const failures = store.failures.get(id) ?? 0;
+  if (failures >= 5) {
+    setStatus(id, manifest, {
+      ok: false,
+      health: "error",
+      keyGated: false,
+      itemCount: store.cache.get(id)?.items.length ?? 0,
+      lastError: "Circuit open — too many consecutive failures",
+      stale: true,
+    });
+    return store.cache.get(id)?.items ?? [];
+  }
+
   const cached = store.cache.get(id);
   const fresh = cached && Date.now() - cached.at < manifest.scheduleSeconds * 1000;
-  if (cached && fresh) return cached.items;
+  if (cached && fresh) {
+    setStatus(id, manifest, {
+      ok: true,
+      health: "healthy",
+      keyGated: false,
+      itemCount: cached.items.length,
+      lastFetch: new Date(cached.at).toISOString(),
+      stale: false,
+    });
+    return cached.items;
+  }
 
   const started = Date.now();
+  await trackConnectorRequest(id);
+
   try {
     let items = await collect();
-    // Content-policy check: strip full text unless the source permits caching it.
     if (manifest.contentPolicy !== "full_cache") {
       items = items.map((it) => ({ ...it, body: undefined }));
     }
     if (manifest.contentPolicy === "metadata_only") {
       items = items.map((it) => ({ ...it, summary: undefined }));
     }
+
     store.cache.set(id, { at: Date.now(), items });
-    store.status.set(id, {
-      id,
-      module: manifest.module,
-      source: manifest.source,
+    store.failures.set(id, 0);
+
+    setStatus(id, manifest, {
       ok: true,
+      health: "healthy",
       keyGated: false,
       lastFetch: new Date().toISOString(),
       itemCount: items.length,
       latencyMs: Date.now() - started,
+      stale: false,
     });
+
     ingestItems(items);
+    enqueueIngestion({
+      id: `${id}-${Date.now()}`,
+      sourceId: id,
+      provider: manifest.source,
+      items,
+    });
+
     await publish({ type: "connector.run", connectorId: id, module: manifest.module, itemCount: items.length });
+    await recordConnectorRun({
+      sourceId: id,
+      status: "success",
+      itemCount: items.length,
+      latencyMs: Date.now() - started,
+    }).catch(() => {});
+
     return items;
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    store.failures.set(id, failures + 1);
+
     await publish({
       type: "connector.error",
       connectorId: id,
       module: manifest.module,
-      error: err instanceof Error ? err.message : String(err),
+      error: msg,
     });
-    store.status.set(id, {
-      id,
-      module: manifest.module,
-      source: manifest.source,
-      ok: false,
+
+    const hasCache = Boolean(cached?.items.length);
+    setStatus(id, manifest, {
+      ok: hasCache,
+      health: hasCache ? "degraded" : "error",
       keyGated: false,
       lastFetch: new Date().toISOString(),
-      lastError: err instanceof Error ? err.message : String(err),
+      lastError: msg,
       itemCount: cached?.items.length ?? 0,
       latencyMs: Date.now() - started,
+      stale: hasCache,
     });
-    return cached?.items ?? []; // degrade to last good data, never crash the module
+
+    await recordConnectorRun({
+      sourceId: id,
+      status: "error",
+      itemCount: cached?.items.length ?? 0,
+      latencyMs: Date.now() - started,
+      errorMessage: msg,
+    }).catch(() => {});
+
+    return cached?.items ?? [];
   }
 }
 
@@ -138,11 +212,6 @@ export async function runConnectors(ids: string[]): Promise<Item[]> {
     .sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
 }
 
-/**
- * Like runConnectors but with a hard time budget per connector: whatever is
- * cached or fast makes this response; cold slow sources keep fetching in the
- * background and are picked up from cache on the next request.
- */
 export async function runConnectorsWithBudget(
   ids: string[],
   budgetMs = 4000,
@@ -161,19 +230,24 @@ export async function runConnectorsWithBudget(
 }
 
 export function connectorStatuses(): ConnectorStatus[] {
-  // Include registered-but-never-run connectors so the settings page is complete.
   const out: ConnectorStatus[] = [];
   for (const [id, { manifest }] of connectors) {
-    out.push(
-      store.status.get(id) ?? {
-        id,
-        module: manifest.module,
-        source: manifest.source,
-        ok: true,
-        keyGated: Boolean(manifest.requiresKey && !process.env[manifest.requiresKey]),
-        itemCount: 0,
-      },
-    );
+    const existing = store.status.get(id);
+    if (existing) {
+      out.push(existing);
+      continue;
+    }
+    const keyGated = Boolean(manifest.requiresKey && !process.env[manifest.requiresKey]);
+    out.push({
+      id,
+      module: manifest.module,
+      source: manifest.source,
+      ok: false,
+      health: keyGated ? "key_gated" : "unknown",
+      keyGated,
+      itemCount: 0,
+      provider: manifest.source,
+    });
   }
   return out.sort((a, b) => a.module.localeCompare(b.module));
 }

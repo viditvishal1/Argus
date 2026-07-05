@@ -14,6 +14,10 @@ import {
 } from "@/lib/connectors";
 import { aiEnabled, writeBriefing } from "@/lib/ai";
 import type { Item } from "@/lib/types";
+import { checkRateLimit, clientKey, LIMITS } from "@/lib/security/rate-limit";
+import { trackApiRequest } from "@/lib/usage/tracker";
+import { isFeatureEnabled } from "@/lib/platform/feature-flags";
+import { dbEnabled } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -31,10 +35,20 @@ function matches(item: Item, terms: string[]): boolean {
 
 async function gatherMatches(q: string): Promise<Item[]> {
   const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
-  const allIds = Object.values(MODULE_CONNECTORS).flat();
+
+  // Phase 2: query OpenSearch / ingested_items first when hybrid_search enabled
+  const hybrid = await isFeatureEnabled("hybrid_search");
+  if (hybrid && dbEnabled()) {
+    // Placeholder — indexed search wired in Phase 2
+  }
+
+  // Limit connector fan-out: prioritize news + markets + relevant modules by query shape
+  const tickerLike = /^[\^]?[A-Z]{1,5}$/.test(q.trim());
+  const allIds = tickerLike
+    ? [...(MODULE_CONNECTORS.markets ?? []), ...(MODULE_CONNECTORS.news ?? [])]
+    : Object.values(MODULE_CONNECTORS).flat().slice(0, 20);
+
   const [cachedGroups, gnews, datasets] = await Promise.all([
-    // 4s budget per connector: cached connectors return instantly; cold slow
-    // ones (NVD, CourtListener) miss this response but warm the cache.
     Promise.all(allIds.map((id) => withBudget(runConnector(id), 4000, [] as Item[]))),
     withBudget(searchGoogleNews(q), 5000, []),
     withBudget(searchDataGov(q), 5000, []),
@@ -44,6 +58,11 @@ async function gatherMatches(q: string): Promise<Item[]> {
 }
 
 export async function GET(req: NextRequest) {
+  await trackApiRequest("/api/search");
+  const rl = await checkRateLimit({ key: `search:${clientKey(req)}`, ...LIMITS.search });
+  if (!rl.allowed) {
+    return NextResponse.json({ error: "rate limit exceeded", retryAfterMs: rl.resetAt - Date.now() }, { status: 429 });
+  }
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();
   const mode = req.nextUrl.searchParams.get("mode") ?? "results";
   if (!q) return NextResponse.json({ error: "q required" }, { status: 400 });

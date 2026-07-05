@@ -80,14 +80,28 @@ export interface GraphEdge {
   weight: number;
 }
 
+export type ConnectorHealthState =
+  | "unknown"
+  | "healthy"
+  | "degraded"
+  | "error"
+  | "key_gated"
+  | "disabled"
+  | "rate_limited";
+
 export interface ConnectorStatus {
   id: string;
   module: string;
   source: string;
   ok: boolean;
+  health: ConnectorHealthState;
   keyGated: boolean;
   lastFetch?: string;
   lastError?: string;
   itemCount: number;
   latencyMs?: number;
+  geographicScope?: string;
+  dataDelay?: string;
+  provider?: string;
+  stale?: boolean;
 }

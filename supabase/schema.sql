@@ -1,5 +1,6 @@
--- EarthOS Supabase schema
+-- EarthOS Supabase base schema
 -- Run this entire file in: Supabase Dashboard > SQL Editor > New query
+-- Then run: supabase/migrations/001_platform_foundation.sql for Phase 1 tables
 
 create table if not exists article_cache (
   id text primary key,
