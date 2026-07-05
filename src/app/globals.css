@@ -486,3 +486,22 @@ body.animations-paused *::after {
   font-size: 12px;
 }
 .maplibregl-popup-tip { border-top-color: var(--t-panel-2) !important; }
+
+/* Dashboard grid — react-grid-layout theme */
+.argus-dashboard-grid .react-grid-item {
+  transition: box-shadow 0.15s ease;
+}
+.argus-dashboard-grid .react-grid-item.react-draggable-dragging {
+  z-index: 20;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 35%);
+}
+.argus-dashboard-grid .react-resizable-handle {
+  opacity: 0.35;
+}
+.argus-dashboard-grid .react-resizable-handle:hover {
+  opacity: 1;
+}
+.argus-dashboard-grid .react-resizable-handle::after {
+  border-color: var(--t-accent) !important;
+}
+

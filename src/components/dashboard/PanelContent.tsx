@@ -66,22 +66,36 @@ export function PanelContent({
   instance,
   definition,
   onClose,
+  draggable,
 }: {
   instance: PanelInstance;
   definition: PanelDefinition;
   onClose?: () => void;
+  draggable?: boolean;
 }) {
   if (definition.componentId === "globe-map") {
     return (
-      <div className="h-full min-h-[320px] overflow-hidden rounded-lg border border-line">
-        <GlobeDashboard variant="dashboard" fullBleed region="global" />
+      <div className="flex h-full min-h-[320px] flex-col overflow-hidden rounded-lg border border-line bg-panel">
+        <div
+          className={`panel-header shrink-0 gap-2 ${draggable ? "panel-drag-handle cursor-grab active:cursor-grabbing" : ""}`}
+        >
+          <span className="min-w-0 truncate text-xs font-medium text-ink">{definition.title}</span>
+          {onClose && (
+            <button type="button" onClick={onClose} className="ml-auto text-ink-dim hover:text-ink" aria-label="Close panel">
+              ×
+            </button>
+          )}
+        </div>
+        <div className="min-h-0 flex-1">
+          <GlobeDashboard variant="dashboard" fullBleed region="global" />
+        </div>
       </div>
     );
   }
 
   if (definition.componentId === "provider-health") {
     return (
-      <PanelShell title={definition.title} onClose={onClose}>
+      <PanelShell title={definition.title} onClose={onClose} draggable={draggable}>
         <ProviderHealthPanel />
       </PanelShell>
     );
@@ -89,7 +103,7 @@ export function PanelContent({
 
   if (definition.componentId === "event-timeline") {
     return (
-      <PanelShell title={definition.title} source="GDELT / modules" onClose={onClose}>
+      <PanelShell title={definition.title} source="GDELT / modules" onClose={onClose} draggable={draggable}>
         <EventTimelinePanel />
       </PanelShell>
     );
@@ -97,7 +111,7 @@ export function PanelContent({
 
   if (definition.componentId === "markets-snapshot") {
     return (
-      <PanelShell title={definition.title} source="Stooq EOD · CoinGecko" onClose={onClose}>
+      <PanelShell title={definition.title} source="Stooq EOD · CoinGecko" onClose={onClose} draggable={draggable}>
         <MarketsSnapshotPanel />
       </PanelShell>
     );
@@ -105,7 +119,7 @@ export function PanelContent({
 
   if (definition.componentId === "my-monitors") {
     return (
-      <PanelShell title={definition.title} source="Alert engine" onClose={onClose}>
+      <PanelShell title={definition.title} source="Alert engine" onClose={onClose} draggable={draggable}>
         <MonitorPanel />
       </PanelShell>
     );
@@ -114,7 +128,7 @@ export function PanelContent({
   const quickKind = QUICK_MAP[definition.componentId];
   if (quickKind) {
     return (
-      <PanelShell title={definition.title} onClose={onClose}>
+      <PanelShell title={definition.title} onClose={onClose} draggable={draggable}>
         <QuickPanelInner kind={quickKind} />
       </PanelShell>
     );
@@ -122,14 +136,14 @@ export function PanelContent({
 
   if (definition.componentId === "cameras") {
     return (
-      <PanelShell title={definition.title} source="Agency feeds" onClose={onClose}>
+      <PanelShell title={definition.title} source="Agency feeds" onClose={onClose} draggable={draggable}>
         <QuickPanelInner kind="cameras" />
       </PanelShell>
     );
   }
 
   return (
-    <PanelShell title={definition.title} onClose={onClose}>
+    <PanelShell title={definition.title} onClose={onClose} draggable={draggable}>
       <p className="text-[11px] text-ink-dim">
         Panel <code className="mono">{definition.key}</code> — dependencies: {definition.dataDependencies.join(", ") || "none"}
       </p>

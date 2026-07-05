@@ -11,6 +11,7 @@ export const EXPECTED_MIGRATIONS = [
   "005_observations_tracks.sql",
   "006_provider_governance.sql",
   "007_alerts_search_ops.sql",
+  "008_user_auth_rls.sql",
 ] as const;
 
 export function listRepoMigrations(root = process.cwd()): string[] {

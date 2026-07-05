@@ -13,7 +13,7 @@ interface EvidenceInput {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = requirePrivateApi(req);
+  const auth = await requirePrivateApi(req);
   if (isPrincipalError(auth)) return auth;
   await trackApiRequest("/api/reports/export");
   const body = await req.json().catch(() => ({}));

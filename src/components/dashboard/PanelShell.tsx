@@ -12,6 +12,7 @@ export function PanelShell({
   children,
   onClose,
   actions,
+  draggable = false,
 }: {
   title: string;
   freshness?: string;
@@ -20,10 +21,13 @@ export function PanelShell({
   children: ReactNode;
   onClose?: () => void;
   actions?: ReactNode;
+  draggable?: boolean;
 }) {
   return (
     <div className="panel flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-line bg-panel">
-      <div className="panel-header shrink-0 gap-2">
+      <div
+        className={`panel-header shrink-0 gap-2 ${draggable ? "panel-drag-handle cursor-grab active:cursor-grabbing" : ""}`}
+      >
         <span className="min-w-0 truncate normal-case tracking-normal text-xs font-medium text-ink">{title}</span>
         <div className="flex shrink-0 items-center gap-2">
           {stale && <Badge tone="warning">Stale</Badge>}

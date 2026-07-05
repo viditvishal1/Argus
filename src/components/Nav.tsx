@@ -11,6 +11,7 @@ import { MODULES } from "@/lib/modules";
 import { VariantSwitcher } from "@/components/VariantSwitcher";
 import { FreshnessBadge } from "@/components/FreshnessBadge";
 import { FindingsBadge } from "@/components/FindingsBadge";
+import { AuthButton } from "@/components/AuthButton";
 
 const ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   earth: Globe2, news: Newspaper, cyber: ShieldAlert, aviation: Plane,
@@ -57,6 +58,7 @@ export function Nav() {
         {MODULES.map((m) => link(m.path, m.name, ICONS[m.id] ?? Globe2))}
       </nav>
       <div className="mt-2 flex flex-col gap-0.5 border-t border-line pt-2">
+        <AuthButton />
         {link("/saved", "Saved", Bookmark)}
         {link("/admin/sources", "Sources", Settings)}
         {link("/settings", "Settings", Settings)}
