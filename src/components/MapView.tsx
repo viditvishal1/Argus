@@ -178,6 +178,7 @@ export function MapView({
   layers, lines = [], onSelect, onLocationPick, pin, center = [10, 25], zoom = 1.6, className,
   defaultBasemap = "dark", defaultGlobe = false, maxZoom = 19,
   autoRotate = false, rotateSpeed = 0.05, onMove,
+  mapControlsClass,
 }: {
   layers: MapLayer[];
   lines?: MapLine[];
@@ -193,6 +194,8 @@ export function MapView({
   autoRotate?: boolean; // slow bearing spin; pauses on interaction, resumes idle
   rotateSpeed?: number; // degrees of bearing per animation frame tick
   onMove?: (s: { lat: number; lon: number; zoom: number }) => void; // center/zoom readout
+  /** Override position of basemap / globe / terrain controls (e.g. below a parent toolbar). */
+  mapControlsClass?: string;
 }) {
   const el = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MlMap | null>(null);
@@ -461,14 +464,14 @@ export function MapView({
   return (
     <div className={`relative ${className ?? "h-[calc(100vh-12rem)] w-full"}`}>
       <div ref={el} className="h-full w-full overflow-hidden rounded-lg border border-line" />
-      <div className="absolute left-2 top-2 z-10 flex flex-col gap-1.5">
-        <div className="flex items-center gap-1 rounded-lg border border-line bg-body/85 p-1 backdrop-blur">
-          <Layers className="ml-1 h-3.5 w-3.5 text-ink-dim" />
+      <div className={`absolute z-10 flex max-w-[calc(100%-1rem)] flex-col gap-1.5 ${mapControlsClass ?? "left-2 top-2"}`}>
+        <div className="flex flex-wrap items-center gap-1 rounded-lg border border-line bg-body/90 p-1 shadow-sm backdrop-blur">
+          <Layers className="ml-1 h-3.5 w-3.5 shrink-0 text-ink-dim" />
           {(Object.keys(BASEMAPS) as BasemapId[]).map((id) => (
             <button
               key={id}
               onClick={() => switchBasemap(id)}
-              className={`rounded-md px-2 py-1 text-[11px] ${
+              className={`shrink-0 rounded-md px-2 py-1 text-[11px] ${
                 basemap === id ? "bg-panel-2 text-ink" : "text-ink-dim hover:text-ink"
               }`}
             >
@@ -476,7 +479,7 @@ export function MapView({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1 rounded-lg border border-line bg-body/85 p-1 backdrop-blur">
+        <div className="flex w-fit flex-wrap items-center gap-1 rounded-lg border border-line bg-body/90 p-1 shadow-sm backdrop-blur">
           <button
             onClick={() => setGlobe((g) => !g)}
             className={`flex items-center gap-1 rounded-md px-2 py-1 text-[11px] ${

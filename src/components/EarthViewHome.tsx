@@ -51,14 +51,14 @@ function KpiCard({
   accent?: string;
 }) {
   return (
-    <Link href={href} className="rounded-lg border border-line bg-panel p-3 transition-colors hover:bg-panel-2">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-ink-dim">
-        <Icon className="h-3.5 w-3.5" /> {label}
+    <Link href={href} className="min-w-0 rounded-lg border border-line bg-panel p-3 transition-colors hover:bg-panel-2">
+      <div className="flex items-center gap-1.5 truncate text-[10px] uppercase tracking-wide text-ink-dim">
+        <Icon className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{label}</span>
       </div>
-      <div className={`mono mt-1 text-xl font-semibold ${accent ?? "text-ink"}`}>
+      <div className={`mono mt-1 truncate text-xl font-semibold ${accent ?? "text-ink"}`}>
         {typeof value === "number" ? <LiveNumber value={value} /> : value}
       </div>
-      {sub && <div className="mt-0.5 text-[10px] text-ink-dim">{sub}</div>}
+      {sub && <div className="mt-0.5 truncate text-[10px] text-ink-dim">{sub}</div>}
     </Link>
   );
 }
@@ -92,9 +92,17 @@ export function EarthViewHome() {
 
         const m = (data.modules?.markets?.items ?? []) as Item[];
         const sp = m.find((i) => i.title.includes("S&P") || i.tags.includes("^gspc"));
-        const chg = sp?.extra?.change24h ?? sp?.severityLabel;
-        if (chg != null) {
-          setKpi((k) => ({ ...k, spChange: `${Number(chg) >= 0 ? "+" : ""}${Number(chg).toFixed(2)}%` }));
+        const raw = sp?.extra?.change24h ?? sp?.severityLabel;
+        if (raw != null && raw !== "") {
+          const n = typeof raw === "number" ? raw : parseFloat(String(raw).replace(/[^0-9.-]/g, ""));
+          if (Number.isFinite(n)) {
+            setKpi((k) => ({ ...k, spChange: `${n >= 0 ? "+" : ""}${n.toFixed(2)}%` }));
+          } else {
+            const s = String(raw).trim();
+            if (s && !s.includes("NaN")) {
+              setKpi((k) => ({ ...k, spChange: s.includes("%") ? s : `${s}%` }));
+            }
+          }
         }
       })
       .catch(() => {});
@@ -194,7 +202,7 @@ export function EarthViewHome() {
     : live.loading ? "loading…" : "—";
 
   return (
-    <div className="-mx-4 space-y-4 pb-12 md:-mx-6">
+    <div className="-mx-4 space-y-4 pb-14 md:-mx-6">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3 px-4 md:px-6">
         <div>
@@ -213,7 +221,7 @@ export function EarthViewHome() {
       </div>
 
       {/* KPI strip */}
-      <div className="grid grid-cols-2 gap-2 px-4 md:grid-cols-4 md:px-6 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 px-4 sm:grid-cols-3 lg:grid-cols-4 md:px-6 2xl:grid-cols-7">
         <KpiCard icon={Shield} label="Live alerts" value={kpi.alerts} sub={`${kpi.criticalAlerts} critical`} href="/settings" accent={kpi.criticalAlerts > 0 ? "text-critical" : undefined} />
         <KpiCard icon={CandlestickChart} label="Markets" value={kpi.spChange ?? "—"} sub="S&P 500" href="/markets" accent={kpi.spChange?.startsWith("+") ? "text-live" : kpi.spChange?.startsWith("-") ? "text-critical" : undefined} />
         <KpiCard icon={Ship} label="Vessels" value={kpi.vessels.toLocaleString()} sub={`${live.meta.shipsStale ? "stale" : "live"} AIS`} href="/maritime" />
@@ -235,8 +243,8 @@ export function EarthViewHome() {
           className="h-full w-full [&>div:first-child]:rounded-none [&>div:first-child]:border-0"
         />
 
-        {/* Layers panel — top right */}
-        <div className="hud-window absolute right-3 top-3 z-10 flex w-48 flex-col gap-1 rounded-lg px-2.5 py-2">
+        {/* Layers panel — top right (below map basemap controls) */}
+        <div className="hud-window absolute right-3 top-3 z-10 flex w-48 max-h-[min(380px,calc(100%-1.5rem))] flex-col gap-1 overflow-y-auto rounded-lg px-2.5 py-2 sm:top-[3.75rem]">
           <div className="mb-0.5 flex items-center justify-between">
             <span className="text-[9px] font-medium uppercase tracking-widest text-ink-dim">Layers</span>
             {isolate && (
@@ -280,13 +288,13 @@ export function EarthViewHome() {
       </section>
 
       {/* Row below map — activity | signals | alerts */}
-      <div className="grid gap-3 px-4 md:grid-cols-3 md:px-6">
-        <section className="panel rounded-lg">
-          <div className="panel-header">
-            <span className="flex items-center gap-1.5"><Activity className="h-3.5 w-3.5" /> Global activity</span>
+      <div className="grid min-w-0 gap-4 px-4 md:grid-cols-3 md:px-6">
+        <section className="panel min-w-0 rounded-lg">
+          <div className="panel-header gap-2">
+            <span className="flex min-w-0 items-center gap-1.5 truncate"><Activity className="h-3.5 w-3.5 shrink-0" /> Global activity</span>
             <Badge tone="live" pulse>Live</Badge>
           </div>
-          <div className="max-h-[220px] overflow-y-auto p-1.5">
+          <div className="max-h-[220px] overflow-y-auto p-2">
             {activity.map((it) => (
               <div key={it.id} className="rounded-md px-2 py-1.5 hover:bg-panel-2">
                 <div className="truncate text-[12px] text-ink">{it.title}</div>
@@ -303,31 +311,31 @@ export function EarthViewHome() {
           <Link href="/search" className="block border-t border-line px-3 py-2 text-[11px] text-accent hover:underline">View all activity →</Link>
         </section>
 
-        <section className="panel rounded-lg">
-          <div className="panel-header">
-            <span className="flex items-center gap-1.5"><TrendingUp className="h-3.5 w-3.5" /> Top signals</span>
-            <Link href="/search" className="normal-case tracking-normal text-accent">View all</Link>
+        <section className="panel min-w-0 rounded-lg">
+          <div className="panel-header gap-2">
+            <span className="flex min-w-0 items-center gap-1.5 truncate"><TrendingUp className="h-3.5 w-3.5 shrink-0" /> Top signals</span>
+            <Link href="/search" className="shrink-0 normal-case tracking-normal text-accent">View all</Link>
           </div>
           <ol className="max-h-[220px] overflow-y-auto p-2 text-[11px]">
             {signals.map((s, i) => (
-              <li key={s.id} className="mb-1.5 flex gap-2">
-                <span className="mono text-ink-dim">{i + 1}.</span>
-                <span className="text-ink">{s.title}</span>
+              <li key={s.id} className="mb-1.5 flex min-w-0 gap-2">
+                <span className="mono shrink-0 text-ink-dim">{i + 1}.</span>
+                <span className="min-w-0 truncate text-ink">{s.title}</span>
               </li>
             ))}
           </ol>
         </section>
 
-        <section className="panel rounded-lg">
-          <div className="panel-header">
-            <span className="flex items-center gap-1.5"><AlertTriangle className="h-3.5 w-3.5" /> Alerts</span>
-            <Link href="/settings" className="normal-case tracking-normal text-accent">View all</Link>
+        <section className="panel min-w-0 rounded-lg">
+          <div className="panel-header gap-2">
+            <span className="flex min-w-0 items-center gap-1.5 truncate"><AlertTriangle className="h-3.5 w-3.5 shrink-0" /> Alerts</span>
+            <Link href="/settings" className="shrink-0 normal-case tracking-normal text-accent">View all</Link>
           </div>
           <div className="max-h-[220px] overflow-y-auto p-2">
             {alerts.slice(0, 8).map((a, i) => (
-              <div key={i} className="mb-1.5 text-[11px]">
+              <div key={i} className="mb-1.5 flex min-w-0 items-start gap-1.5 text-[11px]">
                 <Badge tone={a.severity === "critical" ? "critical" : a.severity === "warning" ? "warning" : "info"}>{a.severity}</Badge>
-                <span className="ml-1 text-ink">{a.title}</span>
+                <span className="min-w-0 truncate text-ink">{a.title}</span>
               </div>
             ))}
             {alerts.length === 0 && <p className="text-[11px] text-ink-dim">No active alerts</p>}

@@ -35,7 +35,7 @@ async function getItems(module: string): Promise<Item[]> {
 
 export function QuickPanel({ kind, onClose }: { kind: QuickKind; onClose: () => void }) {
   return (
-    <div className="hud-window absolute bottom-11 left-4 top-4 z-30 flex w-[340px] max-w-[calc(100%-2rem)] flex-col rounded-lg">
+    <div className="hud-window absolute bottom-12 left-[4.5rem] top-16 z-30 flex w-[340px] max-w-[calc(100%-6rem)] flex-col rounded-lg">
       <div className="flex items-center justify-between border-b border-line px-3 py-2">
         <span className="text-[11px] font-medium uppercase tracking-widest text-ink">{TITLES[kind]}</span>
         <button onClick={onClose} className="text-ink-dim hover:text-ink" aria-label="Close"><X className="h-4 w-4" /></button>

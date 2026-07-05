@@ -141,6 +141,7 @@ export function GlobeDashboard({
           autoRotate={autoRotate && viewMode === "globe"}
           rotateSpeed={0.04}
           zoom={variant === "dashboard" ? 1.4 : 1.5}
+          mapControlsClass={variant === "dashboard" ? "left-3 top-[3.75rem]" : undefined}
           className="h-full w-full [&>div:first-child]:rounded-none [&>div:first-child]:border-0"
         />
       )}
@@ -192,8 +193,8 @@ export function GlobeDashboard({
         </div>
       </div>
 
-      {/* Layers panel — top right */}
-      <div className="hud-window absolute right-3 top-14 z-10 flex w-44 flex-col gap-1 rounded-lg px-2.5 py-2">
+      {/* Layers panel — top right (below view-mode bar) */}
+      <div className="hud-window absolute right-3 top-[3.75rem] z-10 flex w-44 max-h-[min(420px,calc(100%-6rem))] flex-col gap-1 overflow-y-auto rounded-lg px-2.5 py-2">
         <div className="mb-0.5 flex items-center justify-between">
           <span className="text-[9px] font-medium uppercase tracking-widest text-ink-dim">Layers</span>
           {isolate && (
@@ -240,9 +241,9 @@ export function GlobeDashboard({
         </label>
       </div>
 
-      {/* Quick-module rail — dashboard only */}
+      {/* Quick-module rail — dashboard only (above bottom ticker) */}
       {variant === "dashboard" && (
-        <div className="hud-window absolute bottom-10 left-3 z-10 flex flex-col gap-0.5 rounded-lg p-1">
+        <div className="hud-window absolute bottom-12 left-3 z-10 flex max-h-[min(420px,calc(100%-9rem))] flex-col gap-0.5 overflow-y-auto rounded-lg p-1">
           {QUICK_RAIL.map(({ kind, label, Icon }) => (
             <button
               key={kind}
@@ -264,7 +265,7 @@ export function GlobeDashboard({
       )}
 
       {coords && viewMode !== "wire" && (
-        <div className="pointer-events-none absolute bottom-10 left-1/2 z-10 -translate-x-1/2 rounded-md border border-line bg-panel-hud px-3 py-1 backdrop-blur">
+        <div className="pointer-events-none absolute bottom-12 left-1/2 z-10 max-w-[calc(100%-12rem)] -translate-x-1/2 rounded-md border border-line bg-panel-hud px-3 py-1 backdrop-blur">
           <span className="mono text-[10px] text-ink-dim">
             {coords.lat.toFixed(2)}° {coords.lat >= 0 ? "N" : "S"}, {Math.abs(coords.lon).toFixed(2)}° {coords.lon >= 0 ? "E" : "W"} · zoom {coords.zoom.toFixed(1)}×
           </span>
