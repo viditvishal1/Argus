@@ -79,6 +79,21 @@ export async function fetchViewportLayers(
     out.quakes = { count: points.length, points, provider: "USGS/EONET" };
   }
 
+  if (layers.includes("ships") || layers.includes("maritime")) {
+    const cached = await readLiveCached<Item[]>("ships:global", {
+      ttlSeconds: LIVE_SOFT_TTL.ships,
+      source: "AISHub",
+      fallback: [],
+    });
+    const points = filterByViewport(itemsToPoints(cached.data, "maritime"), vp);
+    out.ships = {
+      count: points.length,
+      points,
+      provider: "AISHub",
+      partial: cached.data.length >= (vp.limit ?? 500),
+    };
+  }
+
   if (layers.includes("satellites")) {
     const bbox: [number, number, number, number] = [vp.west, vp.south, vp.east, vp.north];
     const sat = await readSatellitePositionsInBbox(bbox, vp.limit ?? 200);

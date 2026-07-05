@@ -11,16 +11,38 @@ export interface GlobeLiveMeta {
   shipsUpdatedAt?: string | null;
   shipsStale?: boolean;
   shipsCount?: number;
+  shipsConfigured?: boolean;
+  tomtomConfigured?: boolean;
   hydratedMs?: number;
+}
+
+interface IntegrationRow {
+  id: string;
+  label: string;
+  configured: boolean;
+  state: string;
+  liveCount?: number;
+  ageSeconds?: number | null;
+  updatedAt?: string | null;
+  uiPath: string;
 }
 
 interface BootstrapPayload {
   flights?: { global?: Item[]; stale?: boolean; ageSeconds?: number | null; updatedAt?: string | null };
-  ships?: { items?: Item[]; stale?: boolean; ageSeconds?: number | null };
+  ships?: {
+    items?: Item[];
+    stale?: boolean;
+    cold?: boolean;
+    configured?: boolean;
+    ageSeconds?: number | null;
+    updatedAt?: string | null;
+  };
   webcams?: { items?: Array<{ id: string; title: string; place?: string; lat?: number; lon?: number; url: string; provider: string }> };
   cctv?: { cameras?: CctvCamera[]; stale?: boolean; cold?: boolean };
   iss?: { lat: number; lon: number; altitudeKm?: number; velocityKmh?: number; timestamp?: string } | null;
   modules?: Record<string, { items?: Item[]; stale?: boolean }>;
+  integrations?: IntegrationRow[];
+  features?: { aishub?: boolean; tomtom?: boolean };
   hydratedMs?: number;
 }
 
@@ -127,8 +149,13 @@ export function useGlobeLiveData(region = "global") {
       flightsUpdatedAt: data.flights?.updatedAt ?? null,
       flightsStale: Boolean(data.flights?.stale),
       flightsAgeSeconds: data.flights?.ageSeconds ?? null,
+      shipsUpdatedAt: data.ships?.updatedAt ?? null,
       shipsStale: Boolean(data.ships?.stale),
       shipsCount: data.ships?.items?.length ?? 0,
+      shipsConfigured: data.ships?.configured ?? data.features?.aishub ?? false,
+      tomtomConfigured: data.features?.tomtom
+        ?? data.integrations?.some((i) => i.id === "tomtom" && i.configured)
+        ?? false,
       hydratedMs: data.hydratedMs,
     });
     setLoading(false);

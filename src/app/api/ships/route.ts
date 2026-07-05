@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runConnector } from "@/lib/connectors";
 import { LIVE_SOFT_TTL } from "@/lib/live/config";
 import { readLive } from "@/lib/live/store";
+import { isAishubConfigured } from "@/lib/platform/integrations";
 import type { Item } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -27,11 +28,13 @@ export async function GET() {
 
   return NextResponse.json({
     items: result.data,
+    configured: isAishubConfigured(),
     stale: result.stale,
     cold: result.cold,
     updatedAt: result.updatedAt,
     ageSeconds: result.ageSeconds == null ? null : Math.round(result.ageSeconds),
     source: result.source,
+    coverage: "Multi-region AIS — English Channel, Med, US East, Indian Ocean, Malacca",
     fetchedAt: new Date().toISOString(),
   });
 }

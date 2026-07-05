@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchTrafficFlow, trafficEnabled } from "@/lib/traffic/tomtom";
+import { isTomtomConfigured } from "@/lib/platform/integrations";
 import { trackApiRequest } from "@/lib/usage/tracker";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +10,8 @@ export async function GET(req: NextRequest) {
   if (!trafficEnabled()) {
     return NextResponse.json({
       enabled: false,
-      message: "Live traffic requires TOMTOM_API_KEY. Streets layer shows OSM roads only.",
+      configured: isTomtomConfigured(),
+      message: "Live traffic requires TOMTOM_API_KEY on the server. Streets layer shows OSM roads only.",
       segments: [],
     });
   }
@@ -25,6 +27,7 @@ export async function GET(req: NextRequest) {
   const segments = await fetchTrafficFlow({ minLat, minLon, maxLat, maxLon });
   return NextResponse.json({
     enabled: true,
+    configured: true,
     provider: "TomTom",
     dataDelay: "near-real-time",
     segments,

@@ -5,7 +5,9 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle2, KeyRound, Settings as SettingsIcon, XCircle } from "lucide-react";
+import { IntegrationBadge, integrationDetail } from "@/components/IntegrationBadge";
 import { timeAgo } from "@/components/ModuleView";
+import type { IntegrationState } from "@/lib/platform/integrations";
 import type { ConnectorStatus } from "@/lib/types";
 
 type RedisHealth = {
@@ -21,6 +23,17 @@ type LiveHealth = {
   redis?: RedisHealth;
   seedMeta?: Record<string, { recordCount?: number; seededAt?: string; source?: string } | null>;
   snapshots?: Record<string, { count?: number; stale?: boolean; cold?: boolean; ageSeconds?: number | null }>;
+};
+
+type IntegrationRow = {
+  id: string;
+  label: string;
+  configured: boolean;
+  state: string;
+  liveCount?: number;
+  ageSeconds?: number | null;
+  coverage?: string;
+  uiPath?: string;
 };
 
 function liveCacheLabel(state?: string): { text: string; className: string } {
@@ -64,6 +77,7 @@ export default function SettingsPage() {
   const [usage, setUsage] = useState<{ quotaLevel?: string; r2Enabled?: boolean; redisEnabled?: boolean } | null>(null);
   const [redisHealth, setRedisHealth] = useState<RedisHealth | null>(null);
   const [liveHealth, setLiveHealth] = useState<LiveHealth | null>(null);
+  const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
   const [at, setAt] = useState<string>();
 
   useEffect(() => {
@@ -82,6 +96,7 @@ export default function SettingsPage() {
           setUsage(ud.usage ?? null);
           setRedisHealth(rh);
           setLiveHealth(lh);
+          setIntegrations(d.integrations ?? []);
           setAt(d.fetchedAt);
         });
     load();
@@ -97,6 +112,40 @@ export default function SettingsPage() {
       <h1 className="mb-4 flex items-center gap-2 text-lg font-semibold text-ink">
         <SettingsIcon className="h-5 w-5 text-accent" /> Settings & connector status
       </h1>
+
+      <section className="mb-5 rounded-lg border border-line bg-panel p-4">
+        <h2 className="mb-3 text-sm font-medium text-ink">Live integrations</h2>
+        <div className="space-y-3">
+          {integrations.length === 0 && <p className="text-xs text-ink-dim">Loading integration status…</p>}
+          {integrations.map((i) => (
+            <div key={i.id} className="flex flex-wrap items-start justify-between gap-2 border-b border-line/50 pb-3 last:border-0 last:pb-0">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-ink">{i.label}</span>
+                  <IntegrationBadge
+                    label={i.configured ? "configured" : "missing key"}
+                    state={i.state as IntegrationState}
+                    count={i.liveCount}
+                    detail={integrationDetail(i.state as IntegrationState, i.configured, i.liveCount, i.ageSeconds)}
+                  />
+                </div>
+                <p className="mt-1 text-[11px] text-ink-dim">{i.coverage}</p>
+                {i.liveCount != null && i.liveCount > 0 && (
+                  <p className="text-[11px] text-emerald-400/90">{i.liveCount} records in Redis cache</p>
+                )}
+              </div>
+              {i.uiPath && (
+                <a href={i.uiPath} className="text-[11px] text-accent hover:underline">Open module →</a>
+              )}
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[11px] text-ink-dim">
+          Keys are read from Vercel environment variables at runtime. After adding{" "}
+          <code className="mono rounded bg-panel-2 px-1">AISHUB_API_KEY</code> or{" "}
+          <code className="mono rounded bg-panel-2 px-1">TOMTOM_API_KEY</code>, redeploy and wait for the live cron seed (~2 min).
+        </p>
+      </section>
 
       <section className="mb-5 rounded-lg border border-line bg-panel p-4">
         <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-ink">
@@ -125,6 +174,7 @@ export default function SettingsPage() {
             Keys are set server-side in <code className="mono rounded bg-panel-2 px-1">.env.local</code> (never
             exposed to the browser, never committed): <code className="mono rounded bg-panel-2 px-1">GEMINI_API_KEY</code> for
             AI features, <code className="mono rounded bg-panel-2 px-1">AISHUB_API_KEY</code> for live vessel positions,{" "}
+            <code className="mono rounded bg-panel-2 px-1">TOMTOM_API_KEY</code> for City Twin traffic flow,{" "}
             <code className="mono rounded bg-panel-2 px-1">UPSTASH_REDIS_REST_URL</code> +{" "}
             <code className="mono rounded bg-panel-2 px-1">UPSTASH_REDIS_REST_TOKEN</code> for distributed live cache,{" "}
             <code className="mono rounded bg-panel-2 px-1">CRON_SECRET</code> for scheduled seeding,{" "}

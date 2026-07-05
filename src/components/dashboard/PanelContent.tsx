@@ -13,13 +13,38 @@ const GlobeDashboard = dynamic(
 );
 
 function ProviderHealthPanel() {
-  const [data, setData] = useState<{ providers?: Array<{ id: string; state: string; recordCount: number }> } | null>(null);
+  const [data, setData] = useState<{
+    providers?: Array<{ id: string; state: string; recordCount: number; configured?: boolean }>;
+    integrations?: Array<{ id: string; label: string; state: string; configured: boolean; liveCount?: number }>;
+  } | null>(null);
   useEffect(() => {
-    fetch("/api/v1/providers/health").then((r) => r.json()).then(setData).catch(() => {});
+    Promise.all([
+      fetch("/api/v1/providers/health").then((r) => r.json()),
+      fetch("/api/status").then((r) => r.json()),
+    ]).then(([health, status]) => {
+      setData({ providers: health.providers, integrations: status.integrations });
+    }).catch(() => {});
   }, []);
+
+  const highlight = new Set(["aishub", "tomtom-traffic", "opensky", "cctv-agencies"]);
+
   return (
-    <div className="space-y-1 text-[11px]">
-      {(data?.providers ?? []).slice(0, 12).map((p) => (
+    <div className="space-y-3 text-[11px]">
+      {(data?.integrations ?? []).map((i) => (
+        <div key={i.id} className="rounded border border-line/60 bg-panel-2/40 px-2 py-1.5">
+          <div className="flex justify-between gap-2">
+            <span className="font-medium text-ink">{i.label}</span>
+            <span className={`mono shrink-0 ${i.configured ? "text-emerald-400" : "text-amber-400"}`}>
+              {i.state}{i.liveCount != null && i.liveCount > 0 ? ` · ${i.liveCount}` : ""}
+            </span>
+          </div>
+        </div>
+      ))}
+      <p className="text-[10px] uppercase tracking-wide text-ink-dim">All providers</p>
+      {(data?.providers ?? [])
+        .filter((p) => highlight.has(p.id) || p.state !== "not-covered")
+        .slice(0, 14)
+        .map((p) => (
         <div key={p.id} className="flex justify-between gap-2 border-b border-line/50 py-1">
           <span className="truncate text-ink">{p.id}</span>
           <span className="mono shrink-0 text-ink-dim">{p.state} · {p.recordCount}</span>

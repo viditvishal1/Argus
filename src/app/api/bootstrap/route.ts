@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { readLiveCached } from "@/lib/live/store";
 import { readModuleLiveCached } from "@/lib/live/module-cache";
 import { readAllSeedMeta } from "@/lib/live/seed-meta";
+import { buildIntegrationsSnapshot, isAishubConfigured, isTomtomConfigured } from "@/lib/platform/integrations";
 import type { CctvCamera } from "@/lib/live/cctv";
 import {
   BOOTSTRAP_FLIGHT_REGIONS,
@@ -63,6 +64,7 @@ export async function GET() {
 
   const globalFlights = flightResults.find((f) => f.region === "global") ?? flightResults[0];
   const seedMeta = await readAllSeedMeta([...SEED_META_DOMAINS]);
+  const integrations = await buildIntegrationsSnapshot();
 
   const modules: Record<string, {
     items: Item[];
@@ -99,6 +101,7 @@ export async function GET() {
       items: ships.data,
       stale: ships.stale,
       cold: ships.cold,
+      configured: isAishubConfigured(),
       ageSeconds: ships.ageSeconds == null ? null : Math.round(ships.ageSeconds),
       updatedAt: ships.updatedAt,
       source: ships.source,
@@ -122,6 +125,11 @@ export async function GET() {
     iss: iss.data,
     modules,
     seedMeta,
+    integrations,
+    features: {
+      aishub: isAishubConfigured(),
+      tomtom: isTomtomConfigured(),
+    },
     hydratedMs: Date.now() - started,
     fetchedAt: new Date().toISOString(),
   });

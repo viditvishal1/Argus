@@ -9,6 +9,8 @@ import type { Item } from "@/lib/types";
 import { MapView, type MapLine } from "@/components/MapView";
 import { ItemCard } from "@/components/ModuleView";
 import { ReaderPane } from "@/components/ReaderPane";
+import { IntegrationBadge, integrationDetail } from "@/components/IntegrationBadge";
+import type { IntegrationState } from "@/lib/platform/integrations";
 
 const FALLBACK_PRESETS = [
   { id: "delhi", name: "New Delhi", lat: 28.61, lon: 77.21 },
@@ -43,7 +45,8 @@ export default function CityPage() {
   const [layer, setLayer] = useState<Layer>("weather");
   const [weather, setWeather] = useState<Weather | null>(null);
   const [news, setNews] = useState<Item[]>([]);
-  const [traffic, setTraffic] = useState<{ enabled: boolean; segments: TrafficSegment[]; message?: string } | null>(null);
+  const [traffic, setTraffic] = useState<{ enabled: boolean; configured?: boolean; segments: TrafficSegment[]; message?: string } | null>(null);
+  const [tomtomState, setTomtomState] = useState<IntegrationState>("key-required");
   const [selected, setSelected] = useState<Item | null>(null);
   const [globe, setGlobe] = useState(false);
   const [mapZoom, setMapZoom] = useState(11);
@@ -80,6 +83,17 @@ export default function CityPage() {
   useEffect(() => {
     loadPlace(loc.lat, loc.lon, loc.name);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetch("/api/status")
+      .then((r) => r.json())
+      .then((d) => {
+        const tomtom = (d.integrations ?? []).find((i: { id: string }) => i.id === "tomtom");
+        if (tomtom?.configured) setTomtomState(tomtom.state ?? "ready");
+        else setTomtomState("key-required");
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (layer !== "traffic") return;
@@ -183,7 +197,14 @@ export default function CityPage() {
           <h2 className="mb-2 text-sm font-semibold text-ink">Traffic — {label}</h2>
           {!traffic && <p className="text-xs text-ink-dim">Loading traffic flow…</p>}
           {traffic && !traffic.enabled && (
-            <p className="text-xs text-amber-400/90">{traffic.message ?? "Set TOMTOM_API_KEY for live traffic. Streets layer shows OSM roads only."}</p>
+            <p className="text-xs text-amber-400/90">
+              {traffic.message ?? "Set TOMTOM_API_KEY for live traffic. Streets layer shows OSM roads only."}
+            </p>
+          )}
+          {traffic?.enabled && (
+            <p className="mb-2 text-[10px] text-emerald-400/90">
+              TomTom traffic flow active · congestion-colored segments on map
+            </p>
           )}
           {traffic?.enabled && traffic.segments.length === 0 && (
             <p className="text-xs text-ink-dim">No traffic segments in this viewport.</p>
@@ -281,6 +302,11 @@ export default function CityPage() {
         {layerBtn("news", <Newspaper className="h-3.5 w-3.5" />, "News")}
         {layerBtn("streets", <Map className="h-3.5 w-3.5" />, "Streets")}
         {layerBtn("traffic", <Car className="h-3.5 w-3.5" />, "Traffic")}
+        <IntegrationBadge
+          label="TomTom"
+          state={tomtomState}
+          detail={integrationDetail(tomtomState, tomtomState !== "key-required")}
+        />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">

@@ -5,9 +5,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Anchor, Ship } from "lucide-react";
 import type { Item } from "@/lib/types";
+import type { IntegrationState } from "@/lib/platform/integrations";
 import { MapView } from "@/components/MapView";
 import { ReaderPane } from "@/components/ReaderPane";
 import { ItemCard, timeAgo } from "@/components/ModuleView";
+import { IntegrationBadge, integrationDetail } from "@/components/IntegrationBadge";
 
 const MAJOR_PORTS: Item[] = [
   { id: "port:shanghai", module: "maritime", connectorId: "ports", title: "Port of Shanghai", lat: 31.23, lon: 121.47, source: "Major port", timestamp: new Date().toISOString(), tags: ["port"], entities: [{ name: "Shanghai", type: "location" }], contentPolicy: "metadata_only" },
@@ -26,17 +28,36 @@ export default function MaritimePage() {
   const [selected, setSelected] = useState<Item | null>(null);
   const [tab, setTab] = useState<"globe" | "news">("globe");
   const [fetchedAt, setFetchedAt] = useState<string>();
-  const [hasAis, setHasAis] = useState(false);
+  const [aisConfigured, setAisConfigured] = useState(false);
+  const [aisState, setAisState] = useState<IntegrationState>("key-required");
+  const [aisStale, setAisStale] = useState(false);
+  const [coverage, setCoverage] = useState<string>();
 
   useEffect(() => {
     fetch("/api/modules/maritime").then((r) => r.json()).then((d) => {
-      const items: Item[] = d.items ?? [];
-      const v = items.filter((i) => i.tags.includes("vessel"));
-      setVessels(v);
-      setNews(items.filter((i) => i.tags.includes("maritime-news")));
-      setHasAis(v.length > 0);
-      setFetchedAt(d.fetchedAt);
+      setNews((d.items ?? []).filter((i: Item) => i.tags.includes("maritime-news")));
     });
+  }, []);
+
+  useEffect(() => {
+    const load = () =>
+      fetch("/api/ships")
+        .then((r) => r.json())
+        .then((d) => {
+          const v = (d.items ?? []) as Item[];
+          setVessels(v);
+          setAisConfigured(Boolean(d.configured));
+          setAisStale(Boolean(d.stale));
+          setCoverage(d.coverage);
+          setFetchedAt(d.fetchedAt ?? d.updatedAt);
+          if (!d.configured) setAisState("key-required");
+          else if (v.length === 0) setAisState("awaiting-seed");
+          else if (d.stale) setAisState("stale");
+          else setAisState("fresh");
+        });
+    load();
+    const t = setInterval(load, 90_000);
+    return () => clearInterval(t);
   }, []);
 
   const mapItems = useMemo(() => {
@@ -54,6 +75,8 @@ export default function MaritimePage() {
     [mapItems, vessels.length],
   );
 
+  const hasLiveAis = vessels.length > 0;
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -68,8 +91,14 @@ export default function MaritimePage() {
           className={`rounded-full border px-2.5 py-1 text-xs ${tab === "news" ? "border-cyan-700 bg-cyan-950/50 text-cyan-300" : "border-line text-ink-dim"}`}>
           Shipping news
         </button>
+        <IntegrationBadge
+          label="AISHub"
+          state={aisState}
+          count={vessels.length}
+          detail={integrationDetail(aisState, aisConfigured, vessels.length)}
+        />
         <span className="ml-auto text-[11px] text-ink-dim">
-          {hasAis ? `${vessels.length} live vessels` : "Major ports (set AISHUB_API_KEY for live AIS)"}
+          {hasLiveAis ? `${vessels.length} live vessels` : aisConfigured ? "AIS key set — awaiting seed" : "Major ports fallback"}
           {fetchedAt ? ` · ${timeAgo(fetchedAt)}` : ""}
         </span>
       </div>
@@ -78,8 +107,8 @@ export default function MaritimePage() {
         <div className="relative">
           <MapView
             layers={layers}
-            center={[20, 25]}
-            zoom={1.6}
+            center={hasLiveAis ? [20, 25] : [20, 25]}
+            zoom={hasLiveAis ? 1.8 : 1.6}
             defaultGlobe
             defaultBasemap="dark"
             className="h-[55vh] w-full"
@@ -90,10 +119,29 @@ export default function MaritimePage() {
               <ReaderPane item={selected} onClose={() => setSelected(null)} />
             </div>
           )}
-          {!hasAis && (
+          {!hasLiveAis && (
             <div className="mt-2 rounded-md border border-line bg-panel px-3 py-2 text-xs text-ink-dim">
-              <Ship className="mb-1 inline h-3.5 w-3.5 text-cyan-400" /> Live AIS positions need <code className="mono">AISHUB_API_KEY</code> in Settings. Showing global major ports until enabled.
+              <Ship className="mb-1 inline h-3.5 w-3.5 text-cyan-400" />
+              {aisConfigured ? (
+                <>
+                  {" "}
+                  <span className="text-emerald-400/90">AISHub key is configured.</span> Live positions appear after the next cron seed
+                  (every ~2 min). Toggle <strong>Ships</strong> on the Dashboard globe once data arrives.
+                  {coverage && <span className="mt-1 block text-[10px]">{coverage}</span>}
+                </>
+              ) : (
+                <>
+                  {" "}
+                  Set <code className="mono">AISHUB_API_KEY</code> in Vercel → Settings → Environment Variables, redeploy, then wait for cron seed.
+                </>
+              )}
             </div>
+          )}
+          {hasLiveAis && (
+            <p className="mt-2 text-[10px] text-ink-dim">
+              AISHub · {coverage ?? "multi-region bbox"}
+              {aisStale ? " · cache stale — refreshing on next seed" : " · live cache"}
+            </p>
           )}
         </div>
       )}

@@ -30,6 +30,15 @@ export const FLIGHT_SEED_REGIONS = [
   "global", "europe", "usa", "india", "china", "mideast",
 ] as const;
 
+/** AISHub bbox windows — merged on seed (receiver coverage varies by region). */
+export const SHIP_SEED_BBOXES = [
+  { id: "channel", label: "English Channel", latmin: 48, latmax: 56, lonmin: -6, lonmax: 10 },
+  { id: "med", label: "Mediterranean", latmin: 30, latmax: 45, lonmin: -5, lonmax: 36 },
+  { id: "us_east", label: "US East Coast", latmin: 25, latmax: 45, lonmin: -81, lonmax: -65 },
+  { id: "india", label: "Indian Ocean", latmin: 5, latmax: 22, lonmin: 65, lonmax: 95 },
+  { id: "singapore", label: "Malacca / Singapore", latmin: -2, latmax: 12, lonmin: 95, lonmax: 110 },
+] as const;
+
 export const BOOTSTRAP_FLIGHT_REGIONS = ["global", "europe", "usa", "india"] as const;
 
 export const BOOTSTRAP_MODULES = ["earth", "news", "conflict", "cyber", "markets"] as const;

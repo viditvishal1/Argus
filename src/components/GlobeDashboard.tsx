@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { MapView, type MapLayer } from "@/components/MapView";
 import { Badge } from "@/components/Badge";
+import { IntegrationBadge, integrationDetail } from "@/components/IntegrationBadge";
 import { QuickPanel, type QuickKind } from "@/components/quick/QuickPanels";
 import { useGlobeLiveData } from "@/lib/hooks/useGlobeLiveData";
 import type { Item } from "@/lib/types";
@@ -188,7 +189,39 @@ export function GlobeDashboard({
             <span className="mono text-[10px] text-ink-dim">{now.toISOString().replace("T", " ").slice(0, 19)} UTC</span>
           </div>
           {variant === "dashboard" && (
-            <span className="mono text-[9px] text-ink-dim">flights {freshness}</span>
+            <div className="flex flex-col items-end gap-1">
+              <span className="mono text-[9px] text-ink-dim">flights {freshness}</span>
+              <div className="flex flex-wrap justify-end gap-1">
+                {live.meta.shipsConfigured && (
+                  <IntegrationBadge
+                    label="AIS"
+                    state={
+                      (live.meta.shipsCount ?? 0) > 0
+                        ? live.meta.shipsStale ? "stale" : "fresh"
+                        : "awaiting-seed"
+                    }
+                    count={live.meta.shipsCount}
+                    href="/maritime"
+                    detail={integrationDetail(
+                      (live.meta.shipsCount ?? 0) > 0
+                        ? live.meta.shipsStale ? "stale" : "fresh"
+                        : "awaiting-seed",
+                      true,
+                      live.meta.shipsCount,
+                      live.meta.flightsAgeSeconds,
+                    )}
+                  />
+                )}
+                {live.meta.tomtomConfigured && (
+                  <IntegrationBadge
+                    label="Traffic"
+                    state="ready"
+                    href="/city"
+                    detail="TomTom configured — City Twin traffic layer"
+                  />
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -225,7 +258,12 @@ export function GlobeDashboard({
                 className="flex flex-1 items-center gap-1 text-left text-[10px] uppercase tracking-wide"
               >
                 <span className={on ? "text-ink" : "text-ink-dim"}>{meta.label}</span>
-                <span className="mono ml-auto text-[9px] text-ink-dim">{counts[key]}</span>
+                <span className="mono ml-auto text-[9px] text-ink-dim">
+                  {counts[key]}
+                  {key === "ships" && live.meta.shipsConfigured && counts.ships === 0 && (
+                    <span className="text-amber-400/90" title="AIS key configured — awaiting seed"> · …</span>
+                  )}
+                </span>
               </button>
             </div>
           );
