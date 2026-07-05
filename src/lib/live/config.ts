@@ -43,7 +43,7 @@ export const BOOTSTRAP_FLIGHT_REGIONS = [
   "global", "europe", "usa", "india", "china", "mideast", "africa", "easia",
 ] as const;
 
-export const BOOTSTRAP_MODULES = ["earth", "news", "conflict", "cyber", "markets"] as const;
+export const BOOTSTRAP_MODULES = ["earth", "news", "conflict", "cyber", "markets", "government", "infrastructure", "space"] as const;
 
 export const SEED_MODULES = [
   "earth", "news", "conflict", "cyber", "markets", "space",

@@ -6,6 +6,9 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, KeyRound, Settings as SettingsIcon, XCircle } from "lucide-react";
 import { AlertRuleBuilder } from "@/components/AlertRuleBuilder";
+import { ApiKeysPanel } from "@/components/ApiKeysPanel";
+import { PreferencesPanel } from "@/components/PreferencesPanel";
+import { PushNotifyToggle } from "@/components/PushNotifyToggle";
 import { IntegrationBadge, integrationDetail } from "@/components/IntegrationBadge";
 import { timeAgo } from "@/components/ModuleView";
 import type { IntegrationState } from "@/lib/platform/integrations";
@@ -150,13 +153,33 @@ export default function SettingsPage() {
       </section>
 
       <section className="mb-5 rounded-lg border border-line bg-panel p-4">
+        <h2 className="mb-3 text-sm font-medium text-ink">Personalization</h2>
+        <PreferencesPanel />
+      </section>
+
+      <section className="mb-5 rounded-lg border border-line bg-panel p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-medium text-ink">Notifications</h2>
+          <PushNotifyToggle />
+        </div>
+        <p className="text-xs text-ink-dim">Enable browser push for alert events (requires VAPID keys on server).</p>
+      </section>
+
+      <section className="mb-5 rounded-lg border border-line bg-panel p-4">
         <h2 className="mb-3 text-sm font-medium text-ink">Alerts & saved searches</h2>
         <AlertRuleBuilder />
       </section>
 
       <section className="mb-5 rounded-lg border border-line bg-panel p-4">
         <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-ink">
-          <KeyRound className="h-4 w-4 text-ink-dim" /> API keys
+          <KeyRound className="h-4 w-4 text-ink-dim" /> User API keys
+        </h2>
+        <ApiKeysPanel />
+      </section>
+
+      <section className="mb-5 rounded-lg border border-line bg-panel p-4">
+        <h2 className="mb-2 flex items-center gap-2 text-sm font-medium text-ink">
+          <KeyRound className="h-4 w-4 text-ink-dim" /> Server environment keys
         </h2>
         <div className="space-y-2 text-xs text-ink-dim">
           <p>

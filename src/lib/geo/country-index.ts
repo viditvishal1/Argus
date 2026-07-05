@@ -48,6 +48,14 @@ export function getCountry(iso2: string): CountryRef | undefined {
   return byIso.get(iso2.toUpperCase());
 }
 
+/** Bbox center — used to plot country-level indicators on the map. */
+export function countryCentroid(iso2: string): { lat: number; lon: number } | null {
+  const c = getCountry(iso2);
+  if (!c) return null;
+  const [w, s, e, n] = c.bbox;
+  return { lat: (s + n) / 2, lon: (w + e) / 2 };
+}
+
 export function listCountries(): CountryRef[] {
   return [...COUNTRIES];
 }

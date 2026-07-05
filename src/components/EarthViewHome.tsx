@@ -20,18 +20,11 @@ import { useGlobeLiveData } from "@/lib/hooks/useGlobeLiveData";
 import { useViewportFlights } from "@/lib/hooks/useViewportFlights";
 import type { MapBounds } from "@/lib/maps/bbox";
 import { useEntityTrack } from "@/lib/hooks/useEntityTrack";
+import {
+  LAYER_CATALOG, type LayerKey, defaultLayerToggles, buildMapLayers, allLayerItems,
+} from "@/lib/maps/layer-catalog";
 
-const LAYER_META = {
-  events: { label: "Events", color: "#38bdf8" },
-  quakes: { label: "Quakes", color: "#fb923c" },
-  iss: { label: "ISS", color: "#4ade80" },
-  flights: { label: "Flights", color: "#39ff8f" },
-  ships: { label: "Ships", color: "#22d3ee" },
-  webcams: { label: "Webcams", color: "#a78bfa" },
-  cctv: { label: "CCTV", color: "#f472b6" },
-} as const;
-
-type LayerKey = keyof typeof LAYER_META;
+const LAYER_META = LAYER_CATALOG;
 
 interface KpiState {
   alerts: number;
@@ -76,9 +69,7 @@ export function EarthViewHome() {
   const [kpi, setKpi] = useState<KpiState>({ alerts: 0, criticalAlerts: 0, vessels: 0, aircraft: 0 });
   const [cityWeather, setCityWeather] = useState<KpiState["weather"]>();
   const [fetchedAt, setFetchedAt] = useState<string>();
-  const [toggles, setToggles] = useState<Record<LayerKey, boolean>>({
-    events: true, quakes: true, iss: true, flights: true, ships: true, webcams: false, cctv: false,
-  });
+  const [toggles, setToggles] = useState<Record<LayerKey, boolean>>(defaultLayerToggles);
   const [isolate, setIsolate] = useState<LayerKey | null>(null);
   const [autoRotate, setAutoRotate] = useState(true);
   const [selected, setSelected] = useState<Item | null>(null);
@@ -165,15 +156,17 @@ export function EarthViewHome() {
     }));
   }, [displayFlights.length, live.ships.length]);
 
-  const counts: Record<LayerKey, number> = {
-    events: live.events.length,
-    quakes: live.quakes.length,
-    iss: live.iss.length,
-    flights: displayFlights.length,
-    ships: live.ships.length,
-    webcams: live.webcams.length,
-    cctv: live.cctv.length,
-  };
+  const mergedLayerData = useMemo(
+    () => ({ ...live.layerData, flights: displayFlights }),
+    [live.layerData, displayFlights],
+  );
+
+  const counts = useMemo(
+    () => Object.fromEntries(
+      (Object.keys(LAYER_CATALOG) as LayerKey[]).map((k) => [k, mergedLayerData[k].length]),
+    ) as Record<LayerKey, number>,
+    [mergedLayerData],
+  );
 
   const activeToggles = useMemo(() => {
     if (!isolate) return toggles;
@@ -182,30 +175,12 @@ export function EarthViewHome() {
     ) as Record<LayerKey, boolean>;
   }, [toggles, isolate]);
 
-  const mapLayers = useMemo((): MapLayer[] => {
-    const out: MapLayer[] = [];
-    if (activeToggles.events) out.push({ id: "events", color: LAYER_META.events.color, items: live.events.slice(0, 300), radius: 4 });
-    if (activeToggles.quakes) out.push({ id: "quakes", color: LAYER_META.quakes.color, items: live.quakes.slice(0, 150), radius: 3 });
-    if (activeToggles.iss) out.push({ id: "iss", color: LAYER_META.iss.color, items: live.iss, radius: 6 });
-    if (activeToggles.flights) out.push({ id: "flights", color: LAYER_META.flights.color, items: displayFlights.slice(0, 2000), radius: 2, icon: "plane" });
-    if (activeToggles.ships) out.push({ id: "ships", color: LAYER_META.ships.color, items: live.ships.slice(0, 500), radius: 3 });
-    if (activeToggles.webcams) out.push({ id: "webcams", color: LAYER_META.webcams.color, items: live.webcams, radius: 4 });
-    if (activeToggles.cctv) out.push({ id: "cctv", color: LAYER_META.cctv.color, items: live.cctv, radius: 4 });
-    return out;
-  }, [activeToggles, live, displayFlights]);
-
-  const allMapItems = useMemo(
-    () => [
-      ...live.events.slice(0, 300),
-      ...live.quakes.slice(0, 150),
-      ...live.iss,
-      ...displayFlights.slice(0, 2000),
-      ...live.ships.slice(0, 500),
-      ...live.webcams,
-      ...live.cctv,
-    ],
-    [live, displayFlights],
+  const mapLayers = useMemo(
+    () => buildMapLayers(mergedLayerData, activeToggles, isolate),
+    [mergedLayerData, activeToggles, isolate],
   );
+
+  const allMapItems = useMemo(() => allLayerItems(mergedLayerData), [mergedLayerData]);
 
   const trackLines = useEntityTrack(selected);
 
@@ -274,7 +249,7 @@ export function EarthViewHome() {
         />
 
         {/* Layers panel — top right (below map basemap controls) */}
-        <div className="hud-window absolute right-3 top-3 z-10 flex w-48 max-h-[min(380px,calc(100%-1.5rem))] flex-col gap-1 overflow-y-auto rounded-lg px-2.5 py-2 sm:top-[3.75rem]">
+        <div className="hud-window absolute right-3 top-3 z-10 flex w-48 max-h-[min(480px,calc(100%-1.5rem))] flex-col gap-1 overflow-y-auto rounded-lg px-2.5 py-2 sm:top-[3.75rem]">
           <div className="mb-0.5 flex items-center justify-between">
             <span className="text-[9px] font-medium uppercase tracking-widest text-ink-dim">Layers</span>
             {isolate && (

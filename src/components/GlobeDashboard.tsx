@@ -19,18 +19,11 @@ import { useViewportFlights } from "@/lib/hooks/useViewportFlights";
 import type { MapBounds } from "@/lib/maps/bbox";
 import { useEntityTrack } from "@/lib/hooks/useEntityTrack";
 import type { Item } from "@/lib/types";
+import {
+  LAYER_CATALOG, type LayerKey, defaultLayerToggles, buildMapLayers, allLayerItems,
+} from "@/lib/maps/layer-catalog";
 
-const LAYER_META = {
-  events: { label: "Events", color: "var(--color-info)", key: "events" as const },
-  quakes: { label: "Quakes", color: "var(--color-warning)", key: "quakes" as const },
-  iss: { label: "ISS", color: "var(--color-accent-2)", key: "iss" as const },
-  flights: { label: "Flights", color: "var(--color-live)", key: "flights" as const },
-  ships: { label: "Ships", color: "#22d3ee", key: "ships" as const },
-  webcams: { label: "Webcams", color: "#a78bfa", key: "webcams" as const },
-  cctv: { label: "CCTV", color: "#f472b6", key: "cctv" as const },
-} as const;
-
-type LayerKey = keyof typeof LAYER_META;
+const LAYER_META = LAYER_CATALOG;
 
 const QUICK_RAIL: { kind: QuickKind; label: string; Icon: ComponentType<{ className?: string }> }[] = [
   { kind: "wire", label: "Wire", Icon: Zap },
@@ -73,9 +66,7 @@ export function GlobeDashboard({
   const [now, setNow] = useState(new Date());
   const [selected, setSelected] = useState<Item | null>(null);
   const [coords, setCoords] = useState<MapBounds | null>(null);
-  const [toggles, setToggles] = useState<Record<LayerKey, boolean>>({
-    events: true, quakes: true, iss: true, flights: true, ships: false, webcams: false, cctv: false,
-  });
+  const [toggles, setToggles] = useState<Record<LayerKey, boolean>>(defaultLayerToggles);
   const [isolate, setIsolate] = useState<LayerKey | null>(null);
   const [autoRotate, setAutoRotate] = useState(variant === "dashboard");
   const [viewMode, setViewMode] = useState<ViewMode>("globe");
@@ -92,15 +83,26 @@ export function GlobeDashboard({
     return () => clearInterval(t);
   }, []);
 
-  const counts: Record<LayerKey, number> = {
-    events: events.length,
-    quakes: quakes.length,
-    iss: iss.length,
-    flights: flights.length,
-    ships: ships.length,
-    webcams: webcams.length,
-    cctv: cctv.length,
-  };
+  const mergedLayerData = useMemo(
+    () => ({
+      ...live.layerData,
+      events,
+      quakes,
+      iss,
+      flights,
+      ships,
+      webcams,
+      cctv,
+    }),
+    [live.layerData, events, quakes, iss, flights, ships, webcams, cctv],
+  );
+
+  const counts = useMemo(
+    () => Object.fromEntries(
+      (Object.keys(LAYER_CATALOG) as LayerKey[]).map((k) => [k, mergedLayerData[k].length]),
+    ) as Record<LayerKey, number>,
+    [mergedLayerData],
+  );
 
   const activeToggles = useMemo(() => {
     if (!isolate) return toggles;
@@ -109,22 +111,12 @@ export function GlobeDashboard({
     ) as Record<LayerKey, boolean>;
   }, [toggles, isolate]);
 
-  const layers = useMemo((): MapLayer[] => {
-    const out: MapLayer[] = [];
-    if (activeToggles.events) out.push({ id: "events", color: LAYER_META.events.color, items: events, radius: 4 });
-    if (activeToggles.quakes) out.push({ id: "quakes", color: LAYER_META.quakes.color, items: quakes, radius: 3 });
-    if (activeToggles.iss) out.push({ id: "iss", color: LAYER_META.iss.color, items: iss, radius: 6 });
-    if (activeToggles.flights) out.push({ id: "flights", color: LAYER_META.flights.color, items: flights, radius: 2, icon: "plane" });
-    if (activeToggles.ships) out.push({ id: "ships", color: LAYER_META.ships.color, items: ships, radius: 3 });
-    if (activeToggles.webcams) out.push({ id: "webcams", color: LAYER_META.webcams.color, items: webcams, radius: 4 });
-    if (activeToggles.cctv) out.push({ id: "cctv", color: LAYER_META.cctv.color, items: cctv, radius: 4 });
-    return out;
-  }, [activeToggles, events, quakes, iss, flights, ships, webcams, cctv]);
-
-  const allItems = useMemo(
-    () => [...events, ...quakes, ...iss, ...flights, ...ships, ...webcams, ...cctv],
-    [events, quakes, iss, flights, ships, webcams, cctv],
+  const layers = useMemo(
+    () => buildMapLayers(mergedLayerData, activeToggles, isolate),
+    [mergedLayerData, activeToggles, isolate],
   );
+
+  const allItems = useMemo(() => allLayerItems(mergedLayerData), [mergedLayerData]);
 
   const trackLines = useEntityTrack(selected);
 

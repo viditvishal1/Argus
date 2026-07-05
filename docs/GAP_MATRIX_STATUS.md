@@ -1,42 +1,48 @@
 # Gap Matrix Status (vs PRD)
 
-Last updated: 2026-07-06. Tracks closure of items from `Argus_WorldMonitor_Gap_Matrix.csv` against the current codebase.
+Last updated: 2026-07-06 (batch 2).
 
-## Closed or substantially done in this batch
+## Closed in batch 2
 
 | ID | Item | Status |
 |----|------|--------|
-| G01 | Hostname variants (6 subdomains) | Done — `variantForHostname` |
-| G05 | Universal provenance on Item | Done — `enrichItemProvenance` in connector framework |
-| G14 | Travel advisories + sanctions pressure | Done — `governance.ts` connectors |
-| G18 | Unified preferences store | Done — local + `/api/v1/preferences` + migration `010` |
-| G19 | Web Push | Partial — subscribe/VAPID routes + `push_subscriptions` table; send path pending `web-push` |
-| G28 | Freshness unification | Partial — badge polls `/api/v1/freshness` |
-| G30 | Smart polling | Done — `useSmartPoll` |
-| G31 | Zod/OpenAPI subset | Done — `/api/v1/openapi` |
-| G32 | OpenAPI export | Done — same route |
-| G39 | i18n foundation | Partial — en/hi/ar catalogs + `LocaleSwitcher` |
-| G40 | PWA | Partial — `manifest.json`; service worker pending |
-| G43 | Valkey TCP self-host | Done — `valkey-tcp.ts` wired into `cacheGet`/`cacheSet` |
-| G46 | Export service | Done — JSON/CSV/Markdown country export |
+| G03 | Map layers | Partial → **16 layers** via `layer-catalog.ts` (target 56) |
+| G04 | 500-feed digest | Partial — `/api/v1/digest` aggregates 11 modules up to 500 items |
+| G06 | Telegram connector | Done — `telegram_channels` (needs `TELEGRAM_CHANNELS`) |
+| G07 | Live media wall | Partial — `/live` page + webcam/CCTV layers on map |
+| G15–G17 | Personalization UI | Partial — `PreferencesPanel` in settings |
+| G16 | Polymarket | Done — `polymarket_markets` connector |
+| G19 | Web Push | Done — `web-push` send + `sw.js` + `PushNotifyToggle` |
+| G27 | Forecasts | Done — `open_meteo_forecast` connector |
+| G33 | MCP server | Done — `npm run mcp` (`scripts/mcp-server.mjs`) |
+| G34 | CLI | Done — `npm run cli` (`scripts/argus-cli.mjs`) |
+| G37 | API keys | Done — migration `011` + `/api/v1/keys` + Bearer auth |
+| G40 | PWA | Done — manifest + service worker |
 
-## Still open (multi-sprint)
+## Closed in batch 1
+
+| ID | Item | Status |
+|----|------|--------|
+| G01 | Hostname variants | Done |
+| G05 | Universal provenance | Done |
+| G14 | Travel advisories + sanctions | Done (geo-plotted in batch 2) |
+| G18 | Unified preferences | Done |
+| G28/G30 | Freshness + smart poll | Done |
+| G31/G32 | OpenAPI subset | Done |
+| G39 | i18n foundation | Partial — en/hi/ar |
+| G43 | Valkey TCP | Done |
+| G46 | Export service | Done |
+
+## Still open
 
 | ID | Item | Notes |
 |----|------|-------|
-| G03 | 56 map layers | ~9 layers today |
-| G04 | 500-feed digest | Partial RSS coverage |
-| G06 | Telegram connector | Not started |
-| G07 | Live media wall | Not started |
-| G08–G13 | Domain depth | Partial per module |
-| G15–G17 | Personalization UI | Preferences store exists; UI wiring incomplete |
-| G16 | Polymarket | Not started |
-| G27 | Forecasts | Not started |
-| G33–G34 | MCP / CLI | Not started |
-| G37 | API keys | Not started |
+| G03 | 56 map layers | 16/56 — need Natural Earth overlays, pipelines, etc. |
+| G08–G13 | Domain depth | Incremental per module |
 | G41 | Tauri desktop | Not started |
 | G47 | Billing | Not started |
+| G39 | Full i18n | UI strings mostly English |
 
 ## Migrations
 
-Run `010_preferences_push.sql` in Supabase for cloud preference sync and push subscription storage.
+Run `010_preferences_push.sql` and `011_api_keys.sql` in Supabase.

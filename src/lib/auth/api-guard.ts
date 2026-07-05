@@ -55,6 +55,13 @@ export async function requirePrivateApi(req: NextRequest): Promise<ApiPrincipal 
   const bearer = resolveBearerPrincipal(req);
   if (bearer) return bearer;
 
+  const token = readBearer(req);
+  if (token?.startsWith("argus_")) {
+    const { verifyUserApiKey } = await import("@/lib/auth/api-keys");
+    const userKey = await verifyUserApiKey(token);
+    if (userKey) return userKey;
+  }
+
   if (supabaseAuthConfigured()) {
     try {
       const supabase = await createServerSupabase();

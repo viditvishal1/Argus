@@ -31,6 +31,11 @@ export const OPENAPI_SPEC = {
       get: { summary: "User preferences (auth)", operationId: "getPreferences" },
       put: { summary: "Save preferences (auth)", operationId: "putPreferences" },
     },
+    "/keys": {
+      get: { summary: "List user API keys (auth)", operationId: "listApiKeys" },
+      post: { summary: "Create API key (auth)", operationId: "createApiKey" },
+    },
+    "/digest": { get: { summary: "Cross-feed digest", operationId: "getDigest" } },
     "/metrics": { get: { summary: "Prometheus metrics", operationId: "getMetrics" } },
   },
 } as const;

@@ -16,6 +16,9 @@ import "./infrastructure";
 import "./gdelt";
 import "./conflict";
 import "./governance";
+import "./telegram";
+import "./polymarket";
+import "./forecasts";
 import "./macro";
 import "./firms";
 

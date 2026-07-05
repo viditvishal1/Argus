@@ -6,7 +6,7 @@
 import type { Item } from "@/lib/types";
 import { registerConnector } from "./framework";
 
-/** ISO2 → advisory level 1–4 (higher = more severe). Sources: public travel advisory summaries. */
+import { getCountry, countryCentroid } from "@/lib/geo/country-index";
 const TRAVEL_ADVISORY_LEVEL: Record<string, { level: number; label: string }> = {
   UA: { level: 4, label: "Do not travel" },
   SY: { level: 4, label: "Do not travel" },
@@ -42,38 +42,50 @@ const SANCTIONS_PRESSURE: Record<string, { programs: string[]; pressure: number 
 
 function advisoryItems(): Item[] {
   const now = new Date().toISOString();
-  return Object.entries(TRAVEL_ADVISORY_LEVEL).map(([iso2, adv]) => ({
-    id: `advisory:${iso2}`,
-    module: "conflict",
-    connectorId: "travel_advisories",
-    title: `${iso2} travel advisory — level ${adv.level}`,
-    summary: adv.label,
-    source: "Argus advisory index",
-    timestamp: now,
-    tags: ["advisory", `level-${adv.level}`, iso2.toLowerCase()],
-    entities: [{ name: iso2, type: "location" }],
-    region: iso2,
-    contentPolicy: "metadata_only" as const,
-    extra: { iso2, level: adv.level, methodologyVersion: "advisory-index-v1" },
-  }));
+  return Object.entries(TRAVEL_ADVISORY_LEVEL).map(([iso2, adv]) => {
+    const centroid = countryCentroid(iso2);
+    return {
+      id: `advisory:${iso2}`,
+      module: "conflict",
+      connectorId: "travel_advisories",
+      title: `${iso2} travel advisory — level ${adv.level}`,
+      summary: adv.label,
+      source: "Argus advisory index",
+      timestamp: now,
+      lat: centroid?.lat,
+      lon: centroid?.lon,
+      tags: ["advisory", `level-${adv.level}`, iso2.toLowerCase()],
+      entities: [{ name: getCountry(iso2)?.name ?? iso2, type: "location" }],
+      region: iso2,
+      severity: adv.level >= 3 ? adv.level + 4 : adv.level,
+      contentPolicy: "metadata_only" as const,
+      extra: { iso2, level: adv.level, methodologyVersion: "advisory-index-v1" },
+    };
+  });
 }
 
 function sanctionsItems(): Item[] {
   const now = new Date().toISOString();
-  return Object.entries(SANCTIONS_PRESSURE).map(([iso2, s]) => ({
-    id: `sanctions:${iso2}`,
-    module: "government",
-    connectorId: "sanctions_pressure",
-    title: `${iso2} sanctions pressure`,
-    summary: `Programs: ${s.programs.join(", ")} · pressure ${s.pressure}/10`,
-    source: "Argus sanctions index",
-    timestamp: now,
-    tags: ["sanctions", iso2.toLowerCase()],
-    entities: [{ name: iso2, type: "location" }],
-    region: iso2,
-    contentPolicy: "metadata_only" as const,
-    extra: { iso2, ...s, methodologyVersion: "sanctions-index-v1" },
-  }));
+  return Object.entries(SANCTIONS_PRESSURE).map(([iso2, s]) => {
+    const centroid = countryCentroid(iso2);
+    return {
+      id: `sanctions:${iso2}`,
+      module: "government",
+      connectorId: "sanctions_pressure",
+      title: `${iso2} sanctions pressure`,
+      summary: `Programs: ${s.programs.join(", ")} · pressure ${s.pressure}/10`,
+      source: "Argus sanctions index",
+      timestamp: now,
+      lat: centroid?.lat,
+      lon: centroid?.lon,
+      tags: ["sanctions", iso2.toLowerCase()],
+      entities: [{ name: getCountry(iso2)?.name ?? iso2, type: "location" }],
+      region: iso2,
+      severity: s.pressure,
+      contentPolicy: "metadata_only" as const,
+      extra: { iso2, ...s, methodologyVersion: "sanctions-index-v1" },
+    };
+  });
 }
 
 registerConnector(

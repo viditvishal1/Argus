@@ -8,6 +8,7 @@ import { isAlertDuplicate } from "@/lib/alerts/dedup";
 import { listAlertRules, type AlertRule } from "@/lib/alerts/rules";
 import { listSavedSearches } from "@/lib/search/saved";
 import { broadcastAlert } from "@/lib/alerts/stream";
+import { sendPushForAlert } from "@/lib/push/send";
 import { publish } from "@/lib/events/bus";
 
 async function serviceClient() {
@@ -144,6 +145,7 @@ export async function evaluateAlerts(items: Item[]): Promise<AlertEvent[]> {
       const saved = await persistEvent(ev);
       fired.push(saved);
       broadcastAlert(saved);
+      void sendPushForAlert(saved).catch(() => {});
       void publish({
         type: "alert.fired",
         module: item.module,

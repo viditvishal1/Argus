@@ -5,6 +5,17 @@ import type { Item } from "@/lib/types";
 import type { CctvCamera } from "@/lib/live/cctv/types";
 import { cameraAgencyUrl } from "@/lib/cameras/registry";
 import { useSmartPoll } from "@/lib/hooks/useSmartPoll";
+import type { LayerData } from "@/lib/maps/layer-catalog";
+
+const EMPTY_LAYERS: LayerData = {
+  events: [], quakes: [], iss: [], flights: [], ships: [], webcams: [], cctv: [],
+  fires: [], advisories: [], sanctions: [], conflicts: [], cyber: [], forecasts: [],
+  predictions: [], infrastructure: [], satellites: [],
+};
+
+function geoItems(items: Item[]): Item[] {
+  return items.filter((i) => typeof i.lat === "number" && typeof i.lon === "number");
+}
 
 export interface GlobeLiveMeta {
   flightsUpdatedAt?: string | null;
@@ -103,21 +114,46 @@ export function useGlobeLiveData(region = "global") {
   const [webcams, setWebcams] = useState<Item[]>([]);
   const [cctv, setCctv] = useState<Item[]>([]);
   const [iss, setIss] = useState<Item[]>([]);
+  const [layerData, setLayerData] = useState<LayerData>(EMPTY_LAYERS);
   const [meta, setMeta] = useState<GlobeLiveMeta>({});
   const [loading, setLoading] = useState(true);
 
   const applyBootstrap = useCallback((data: BootstrapPayload) => {
     const earthItems = data.modules?.earth?.items ?? [];
-    setQuakes(earthItems.filter((i) => i.tags.includes("earthquake")));
-    setEvents(earthItems.filter((i) => typeof i.lat === "number" && !i.tags.includes("earthquake")));
+    const quakeItems = earthItems.filter((i) => i.tags.includes("earthquake"));
+    setQuakes(quakeItems);
+    const eventItems = [
+      ...earthItems.filter((i) => typeof i.lat === "number" && !i.tags.includes("earthquake") && !i.tags.includes("forecast")),
+      ...(data.modules?.news?.items ?? []).filter((i) => typeof i.lat === "number"),
+    ];
+    setEvents(eventItems);
 
     const newsItems = data.modules?.news?.items ?? [];
     const conflictItems = data.modules?.conflict?.items ?? [];
-    setEvents((prev) => [
-      ...prev,
-      ...newsItems.filter((i) => typeof i.lat === "number"),
-      ...conflictItems.filter((i) => typeof i.lat === "number"),
-    ]);
+    const govItems = data.modules?.government?.items ?? [];
+    const cyberItems = data.modules?.cyber?.items ?? [];
+    const marketItems = data.modules?.markets?.items ?? [];
+    const infraItems = data.modules?.infrastructure?.items ?? [];
+    const spaceItems = data.modules?.space?.items ?? [];
+
+    setLayerData({
+      events: eventItems,
+      quakes: quakeItems,
+      iss: [],
+      flights: data.flights?.global ?? [],
+      ships: data.ships?.items ?? [],
+      webcams: (data.webcams?.items ?? []).map(webcamToItem).filter((x): x is Item => x != null),
+      cctv: (data.cctv?.cameras ?? []).map(cctvToItem),
+      fires: geoItems(earthItems.filter((i) => i.tags.includes("fire") || i.connectorId === "nasa-firms")),
+      advisories: geoItems(conflictItems.filter((i) => i.tags.includes("advisory"))),
+      sanctions: geoItems(govItems.filter((i) => i.connectorId === "sanctions_pressure")),
+      conflicts: geoItems(conflictItems.filter((i) => !i.tags.includes("advisory"))),
+      cyber: geoItems(cyberItems),
+      forecasts: geoItems(earthItems.filter((i) => i.tags.includes("forecast"))),
+      predictions: marketItems.filter((i) => i.connectorId === "polymarket_markets"),
+      infrastructure: geoItems(infraItems),
+      satellites: geoItems(spaceItems.filter((i) => !i.tags.includes("iss"))),
+    });
 
     setFlights(data.flights?.global ?? []);
     setShips(data.ships?.items ?? []);
@@ -129,7 +165,7 @@ export function useGlobeLiveData(region = "global") {
     setCctv((data.cctv?.cameras ?? []).map(cctvToItem));
 
     if (data.iss && typeof data.iss.lat === "number") {
-      setIss([{
+      const issItem: Item = {
         id: "iss",
         module: "space",
         connectorId: "iss",
@@ -144,7 +180,9 @@ export function useGlobeLiveData(region = "global") {
         tags: ["iss"],
         entities: [{ name: "ISS", type: "satellite" }],
         contentPolicy: "full_cache",
-      }]);
+      };
+      setIss([issItem]);
+      setLayerData((prev) => ({ ...prev, iss: [issItem] }));
     }
 
     setMeta({
@@ -230,5 +268,7 @@ export function useGlobeLiveData(region = "global") {
 
   useSmartPoll(load, { intervalMs: 90_000, hiddenBackoff: 2, maxHiddenIntervalMs: 300_000 });
 
-  return { quakes, events, flights, ships, webcams, cctv, iss, meta, loading, refresh: load };
+  return {
+    quakes, events, flights, ships, webcams, cctv, iss, layerData, meta, loading, refresh: load,
+  };
 }

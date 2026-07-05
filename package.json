@@ -21,6 +21,8 @@
     "staging-parity": "node scripts/staging-parity.mjs",
     "restore-drill": "node scripts/restore-drill.mjs",
     "load-smoke": "node scripts/load-smoke.mjs",
+    "cli": "node scripts/argus-cli.mjs",
+    "mcp": "node scripts/mcp-server.mjs",
     "build:ci": "npm run typecheck && npm test && npm run build",
     "release-gate": "node scripts/preflight.mjs && npm run typecheck && npm test && npm run build && npm run test:e2e"
   },
@@ -39,7 +41,8 @@
     "react-dom": "^19.0.0",
     "react-grid-layout": "^2.2.3",
     "recharts": "^2.15.0",
-    "satellite.js": "^5.0.0"
+    "satellite.js": "^5.0.0",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
