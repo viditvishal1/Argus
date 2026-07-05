@@ -1,6 +1,10 @@
-# EarthOS — Remaining Work
+# Argus — Remaining work
 
-## Completed (Phases 0–4 platform pass)
+## Phase completion
+
+See **`docs/PHASE_STATUS.md`** for the full audit matrix. Phases 0–10 are **MVP-complete** in code; production still needs manual config below.
+
+## Completed platform pass (Phases 0–4 legacy doc)
 
 ### Phase 0
 - [x] Audit documentation
@@ -11,46 +15,43 @@
 - [x] Base schema RLS migration (`003_secure_base_rls.sql`)
 
 ### Phase 1
-- [x] Config tables + expanded seed (news feeds, countries, categories)
-- [x] News connectors config-driven at collect time
-- [x] R2 archive with `@aws-sdk/client-s3` + gzip batches
-- [x] Ingestion queue writes `ingestion_records` + ontology sync
-- [x] Vercel Cron: `/api/cron/ingest`, `/api/cron/cleanup`
-- [x] Retention cleanup job
+- [x] Config tables + expanded seed
+- [x] News connectors config-driven
+- [x] R2 archive, ingestion queue, Vercel crons
 - [x] Admin PATCH `/api/config/sources`
-- [x] Background ingestion auto-enabled with service key
 
 ### Phase 2
-- [x] Hybrid search indexed-first (live fallback opt-in)
-- [x] Graph API uses persisted ontology when available
-- [x] Analyst uses hybrid search not connector fan-out
-- [x] Entity resolution (ticker, ICAO, MMSI, IMO)
-- [x] Universal command bar entity routing
-- [x] pgvector embedding generator (Gemini)
-- [x] Wikidata enrichment helper
+- [x] Hybrid search, graph persistence, entity resolution, embeddings
 
 ### Phase 3
-- [x] City traffic layer UI (TomTom key-gated)
-- [x] Watchlists API
-- [x] Viewport map clustering (existing)
+- [x] City traffic layer, watchlists API, viewport clustering
 
 ### Phase 4
-- [x] Investigation evidence pinning UI
-- [x] Cited report export with evidence + notes
+- [x] Investigation evidence pinning, cited report export
+
+## Audit extensions (Phases 5–10)
+
+- [x] Phase 5 — variants, command palette, methodology
+- [x] Phase 6 — Vitest + Playwright + CI E2E + load smoke
+- [x] Phase 7 — deployment runbook, staging parity, Docker healthchecks
+- [x] Phase 8 — security gate, restore drill, npm audit in CI
+- [x] Phase 9 — AISStream + OpenSearch ingest pipeline
+- [x] Phase 10 — org membership + saved-search tenancy (`009`)
 
 ## Still requires production configuration
 
-1. Link `SUPABASE_SERVICE_KEY` to **argus** Vercel project (not just shared env)
-2. Run migrations `001`, `002`, `003` in Supabase SQL Editor
-3. Seed: `POST /api/usage` with `Authorization: Bearer $EARTHOS_ADMIN_SECRET`
-4. Optional: `TOMTOM_API_KEY`, R2 credentials, Redis, OpenSearch, ClickHouse
+1. Run migrations **`001`–`009`** in Supabase SQL Editor (`node scripts/migrate-check.mjs`)
+2. Link `SUPABASE_SERVICE_KEY` + `NEXT_PUBLIC_SUPABASE_*` to the Argus Vercel project
+3. Set `CRON_SECRET`, Redis (`UPSTASH_*` or `KV_*`), `ARGUS_APP_URL`; **redeploy**
+4. Enable Supabase Cron → `GET /api/cron/live` (see `supabase/scripts/setup_argus_live_cron.sql`)
+5. Post-deploy: `ARGUS_APP_URL=https://… npm run staging-parity`
+6. Optional: `AISHUB_API_KEY` / `AISSTREAM_API_KEY`, `GEMINI_API_KEY`, `OPENSEARCH_*`, `TOMTOM_API_KEY`, R2
 
-## Future enhancements (post-100% foundation)
+## Deferred (not blocking release)
 
-- [x] Supabase Auth + owner-scoped RLS (Phase 2, migration 008)
-- [x] OpenSearch auto-index pipeline on every ingest (Phase 9)
-- [x] AISStream global AIS + map layer fallback (Phase 9)
-- [x] Org-scoped saved searches (Phase 10, migration 009)
 - ClickHouse production deployment + position writers
 - Historical playback UI
 - Real-time investigation collaboration
+- Full i18n (EN/HI/AR RTL) and TV mode
+- Visual regression and accessibility CI scans
+- Web Push alert delivery
