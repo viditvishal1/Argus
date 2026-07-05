@@ -17,6 +17,8 @@
     "verify:live-data": "node scripts/verify-live-data.mjs",
     "seed:cctv": "node scripts/seed-cctv.mjs",
     "preflight": "node scripts/preflight.mjs",
+    "migrate-check": "node scripts/migrate-check.mjs",
+    "staging-parity": "node scripts/staging-parity.mjs",
     "build:ci": "npm run typecheck && npm test && npm run build",
     "release-gate": "node scripts/preflight.mjs && npm run typecheck && npm test && npm run build && npm run test:e2e"
   },

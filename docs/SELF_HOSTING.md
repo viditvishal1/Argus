@@ -44,6 +44,7 @@ Apply in order:
 5. `005_observations_tracks.sql`
 6. `006_provider_governance.sql`
 7. `007_alerts_search_ops.sql`
+8. `008_user_auth_rls.sql` — Supabase Auth profiles + owner-scoped RLS
 
 Verify: `node scripts/preflight.mjs`
 
