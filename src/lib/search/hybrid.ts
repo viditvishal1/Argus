@@ -23,22 +23,22 @@ export async function hybridSearch(q: string, opts?: { limit?: number; liveFallb
 }> {
   const limit = opts?.limit ?? 48;
   const hybrid = await isFeatureEnabled("hybrid_search");
+  const allowLive = opts?.liveFallback === true;
 
-  if (hybrid) {
-    const hits = await indexedSearch(q, limit);
-    if (hits.length >= 5) {
-      return {
-        items: hitsToItems(hits).slice(0, limit),
-        sources: { indexed: hits.length, live: 0, mode: "indexed" },
-      };
-    }
+  const hits = await indexedSearch(q, limit);
+  const indexedItems = hitsToItems(hits);
+
+  if (hybrid && hits.length >= 3) {
+    return {
+      items: indexedItems.slice(0, limit),
+      sources: { indexed: hits.length, live: 0, mode: "indexed" },
+    };
   }
 
-  if (opts?.liveFallback === false) {
-    const hits = await indexedSearch(q, limit);
+  if (!allowLive) {
     return {
-      items: hitsToItems(hits),
-      sources: { indexed: hits.length, live: 0, mode: "indexed_partial" },
+      items: indexedItems.slice(0, limit),
+      sources: { indexed: hits.length, live: 0, mode: hits.length > 0 ? "indexed_partial" : "indexed_empty" },
     };
   }
 
@@ -55,13 +55,13 @@ export async function hybridSearch(q: string, opts?: { limit?: number; liveFallb
     withBudget(searchDataGov(q), 4000, []),
   ]);
 
-  const indexedItems = hitsToItems(indexed);
-  const seen = new Set(indexedItems.map((i) => i.id));
+  const indexedFromLive = hitsToItems(indexed);
+  const seen = new Set(indexedFromLive.map((i) => i.id));
   const liveMatched = liveGroups.flat().filter((it) => matches(it, terms) && !seen.has(it.id));
   for (const it of liveMatched) seen.add(it.id);
   const extras = [...gnews, ...datasets].filter((it) => !seen.has(it.id));
 
-  const merged = [...indexedItems, ...liveMatched, ...extras].slice(0, limit);
+  const merged = [...indexedFromLive, ...liveMatched, ...extras].slice(0, limit);
   return {
     items: merged,
     sources: {

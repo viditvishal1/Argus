@@ -4,7 +4,7 @@
 // layer toggles (weather, air quality, news, streets). Live traffic requires a provider (Phase 3).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CloudSun, MapPin, Newspaper, Map, Wind } from "lucide-react";
+import { CloudSun, MapPin, Newspaper, Map, Wind, Car } from "lucide-react";
 import type { Item } from "@/lib/types";
 import { MapView } from "@/components/MapView";
 import { ItemCard } from "@/components/ModuleView";
@@ -16,7 +16,14 @@ const FALLBACK_PRESETS = [
   { id: "nyc", name: "New York", lat: 40.71, lon: -74.01 },
 ];
 
-type Layer = "weather" | "news" | "streets" | "air";
+type Layer = "weather" | "news" | "streets" | "air" | "traffic";
+
+interface TrafficSegment {
+  roadName?: string;
+  currentSpeed: number;
+  freeFlowSpeed: number;
+  confidence: number;
+}
 
 interface Weather {
   temperatureC: number; windKmh: number; humidity: number;
@@ -34,6 +41,7 @@ export default function CityPage() {
   const [layer, setLayer] = useState<Layer>("weather");
   const [weather, setWeather] = useState<Weather | null>(null);
   const [news, setNews] = useState<Item[]>([]);
+  const [traffic, setTraffic] = useState<{ enabled: boolean; segments: TrafficSegment[]; message?: string } | null>(null);
   const [selected, setSelected] = useState<Item | null>(null);
   const [globe, setGlobe] = useState(false);
   const [mapZoom, setMapZoom] = useState(11);
@@ -72,8 +80,18 @@ export default function CityPage() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (layer !== "traffic") return;
+    const pad = 0.05;
+    fetch(`/api/traffic?minLat=${loc.lat - pad}&minLon=${loc.lon - pad}&maxLat=${loc.lat + pad}&maxLon=${loc.lon + pad}`)
+      .then((r) => r.json())
+      .then(setTraffic)
+      .catch(() => setTraffic({ enabled: false, segments: [], message: "Traffic unavailable" }));
+  }, [layer, loc.lat, loc.lon]);
+
+  useEffect(() => {
     setWeather(null);
     setNews([]);
+    setTraffic(null);
     fetch(`/api/weather?lat=${loc.lat}&lon=${loc.lon}`).then((r) => r.json())
       .then((d) => typeof d.temperatureC === "number" && setWeather(d));
     const q = encodeURIComponent(label);
@@ -140,6 +158,37 @@ export default function CityPage() {
         </div>
       );
     }
+    if (layer === "traffic") {
+      return (
+        <div className="rounded-lg border border-line bg-panel p-4">
+          <h2 className="mb-2 text-sm font-semibold text-ink">Traffic — {label}</h2>
+          {!traffic && <p className="text-xs text-ink-dim">Loading traffic flow…</p>}
+          {traffic && !traffic.enabled && (
+            <p className="text-xs text-amber-400/90">{traffic.message ?? "Set TOMTOM_API_KEY for live traffic. Streets layer shows OSM roads only."}</p>
+          )}
+          {traffic?.enabled && traffic.segments.length === 0 && (
+            <p className="text-xs text-ink-dim">No traffic segments in this viewport.</p>
+          )}
+          {traffic?.enabled && traffic.segments.length > 0 && (
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto">
+              {traffic.segments.slice(0, 20).map((s, i) => {
+                const ratio = s.freeFlowSpeed > 0 ? s.currentSpeed / s.freeFlowSpeed : 1;
+                const congested = ratio < 0.6;
+                return (
+                  <div key={i} className="rounded bg-panel-2 p-2 text-xs">
+                    <div className="font-medium text-ink">{s.roadName ?? "Road segment"}</div>
+                    <div className={congested ? "text-amber-400" : "text-ink-dim"}>
+                      {Math.round(s.currentSpeed)} km/h · free flow {Math.round(s.freeFlowSpeed)} km/h
+                    </div>
+                    <div className="text-ink-dim">TomTom · confidence {(s.confidence * 100).toFixed(0)}%</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    }
     if (layer === "streets") {
       return (
         <div className="rounded-lg border border-line bg-panel p-4">
@@ -172,7 +221,7 @@ export default function CityPage() {
         </div>
       </>
     );
-  }, [selected, layer, weather, label, news, loc, gmapsKey]);
+  }, [selected, layer, weather, label, news, loc, gmapsKey, traffic]);
 
   return (
     <div className="mx-auto max-w-7xl">
@@ -212,6 +261,7 @@ export default function CityPage() {
         {layerBtn("air", <Wind className="h-3.5 w-3.5" />, "Air quality")}
         {layerBtn("news", <Newspaper className="h-3.5 w-3.5" />, "News")}
         {layerBtn("streets", <Map className="h-3.5 w-3.5" />, "Streets")}
+        {layerBtn("traffic", <Car className="h-3.5 w-3.5" />, "Traffic")}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">

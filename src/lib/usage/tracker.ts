@@ -61,6 +61,7 @@ export async function getUsageSnapshot(): Promise<UsageSnapshot> {
     apiRequestsToday,
     r2Enabled: r2Enabled() && (await isFeatureEnabled("r2_archive")),
     redisEnabled: await isFeatureEnabled("redis_cache"),
+    supabaseUsagePct: usagePct,
     quotaLevel: quotaLevelFromUsage(usagePct),
     fetchedAt: new Date().toISOString(),
   };

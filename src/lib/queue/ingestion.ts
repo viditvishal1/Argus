@@ -1,8 +1,9 @@
-// Ingestion queue — decouples collectors from API requests.
+// Ingestion queue — decouples collectors from API requests; writes provenance records.
 
 import { archiveRawBatch, contentHash } from "@/lib/storage/r2";
 import { computeExpiresAt } from "@/lib/storage/retention";
-import { recordUsageMetric } from "@/lib/db/platform";
+import { recordUsageMetric, recordIngestion } from "@/lib/db/platform";
+import { syncItemOntology } from "@/lib/ontology/store";
 import { publish } from "@/lib/events/bus";
 import type { Item } from "@/lib/types";
 
@@ -46,6 +47,20 @@ async function processJob(job: IngestionJob): Promise<void> {
     provider: job.provider,
     records: job.items,
     observedAt: new Date().toISOString(),
+  });
+
+  for (const item of job.items.slice(0, 50)) {
+    await syncItemOntology(item).catch(() => {});
+  }
+
+  await recordIngestion({
+    id: job.id,
+    sourceId: job.sourceId,
+    provider: job.provider,
+    contentHash: hash,
+    rawObjectKey: archive.objectKey,
+    itemCount: job.items.length,
+    expiresAt: expiresAt.toISOString(),
   });
 
   await publish({

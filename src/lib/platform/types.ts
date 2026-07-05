@@ -70,6 +70,7 @@ export interface MarketInstrumentConfig {
 
 export interface UsageSnapshot {
   supabaseRowsEstimate?: number;
+  supabaseUsagePct?: number;
   connectorRequestsToday: number;
   apiRequestsToday: number;
   r2Enabled: boolean;

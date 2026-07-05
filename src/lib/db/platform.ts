@@ -137,11 +137,73 @@ export async function seedPlatformConfig(): Promise<{ sources: number; cities: n
   const c = await serviceClient();
   if (!c) throw new Error("Supabase service client unavailable");
 
+  const { SEED_NEWS_FEEDS, SEED_NEWS_CATEGORIES, SEED_NEWS_COUNTRIES } = await import("@/lib/config/seeds");
+
   let sources = 0;
   for (const s of SEED_DATA_SOURCES) {
     const { error } = await c.from("data_sources").upsert({
       ...s,
       config_json: {},
+      updated_at: new Date().toISOString(),
+    });
+    if (!error) sources += 1;
+  }
+
+  for (const feed of SEED_NEWS_FEEDS) {
+    const { error } = await c.from("data_sources").upsert({
+      id: feed.id,
+      name: feed.source,
+      source_type: "news",
+      provider: feed.source,
+      base_url: feed.url,
+      enabled: true,
+      priority: 55,
+      polling_interval_seconds: 300,
+      retention_hours: 48,
+      reliability_score: 0.88,
+      requires_api_key: false,
+      geographic_scope: feed.region?.toLowerCase() ?? "global",
+      config_json: { url: feed.url, tags: feed.tags, region: feed.region },
+      updated_at: new Date().toISOString(),
+    });
+    if (!error) sources += 1;
+  }
+
+  for (const country of SEED_NEWS_COUNTRIES) {
+    const id = `gnews_country_${country.code.toLowerCase()}`;
+    const { error } = await c.from("data_sources").upsert({
+      id,
+      name: `Google News (${country.name})`,
+      source_type: "news",
+      provider: "Google News",
+      enabled: true,
+      priority: 45,
+      polling_interval_seconds: 600,
+      retention_hours: 48,
+      reliability_score: 0.75,
+      requires_api_key: false,
+      geographic_scope: country.code.toLowerCase(),
+      config_json: { ...country },
+      updated_at: new Date().toISOString(),
+    });
+    if (!error) sources += 1;
+  }
+
+  for (const cat of SEED_NEWS_CATEGORIES) {
+    const id = `gnews_cat_${cat.toLowerCase()}`;
+    const { error } = await c.from("data_sources").upsert({
+      id,
+      name: `Google News (${cat.charAt(0) + cat.slice(1).toLowerCase()})`,
+      source_type: "news",
+      provider: "Google News",
+      enabled: true,
+      priority: 45,
+      polling_interval_seconds: 600,
+      retention_hours: 48,
+      reliability_score: 0.75,
+      requires_api_key: false,
+      geographic_scope: "global",
+      config_json: { category: cat },
       updated_at: new Date().toISOString(),
     });
     if (!error) sources += 1;
@@ -197,6 +259,37 @@ export async function getLatestConnectorRun(sourceId: string): Promise<{ status:
     .maybeSingle();
   if (error || !data) return null;
   return { status: String((data as Row).status), finished_at: (data as Row).finished_at ? String((data as Row).finished_at) : undefined };
+}
+
+export async function recordIngestion(params: {
+  id: string;
+  sourceId: string;
+  provider: string;
+  contentHash: string;
+  rawObjectKey?: string;
+  itemCount: number;
+  expiresAt: string;
+}): Promise<void> {
+  const c = await serviceClient();
+  if (!c) return;
+  await c.from("ingestion_records").upsert({
+    id: params.id,
+    source_id: params.sourceId,
+    provider: params.provider,
+    ingested_at: new Date().toISOString(),
+    content_hash: params.contentHash,
+    raw_object_key: params.rawObjectKey ?? null,
+    processing_status: params.rawObjectKey ? "archived" : "normalized",
+    expires_at: params.expiresAt,
+    retention_class: "standard",
+  });
+}
+
+export async function updateDataSource(id: string, patch: Partial<{ enabled: boolean; priority: number; config_json: Record<string, unknown> }>): Promise<boolean> {
+  const c = await serviceClient();
+  if (!c) return false;
+  const { error } = await c.from("data_sources").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id);
+  return !error;
 }
 
 export async function getUsageSummary(since: Date): Promise<Record<string, number>> {

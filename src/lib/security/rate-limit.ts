@@ -49,20 +49,17 @@ async function redisIncr(key: string, windowMs: number): Promise<{ count: number
 
 export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimitResult> {
   const strict = await isFeatureEnabled("strict_rate_limits");
-  if (!strict) {
-    return { allowed: true, remaining: config.limit, resetAt: Date.now() + config.windowMs, limit: config.limit };
-  }
-
+  const effectiveLimit = strict ? config.limit : Math.max(config.limit, config.limit * 3);
   const now = Date.now();
-  const redis = await redisIncr(config.key, config.windowMs);
+  const redis = strict ? await redisIncr(config.key, config.windowMs) : null;
 
   if (redis) {
-    const allowed = redis.count <= config.limit;
+    const allowed = redis.count <= effectiveLimit;
     return {
       allowed,
-      remaining: Math.max(0, config.limit - redis.count),
+      remaining: Math.max(0, effectiveLimit - redis.count),
       resetAt: now + redis.ttl * 1000,
-      limit: config.limit,
+      limit: effectiveLimit,
     };
   }
 
@@ -72,12 +69,12 @@ export async function checkRateLimit(config: RateLimitConfig): Promise<RateLimit
     buckets.set(config.key, bucket);
   }
   bucket.count += 1;
-  const allowed = bucket.count <= config.limit;
+  const allowed = bucket.count <= effectiveLimit;
   return {
     allowed,
-    remaining: Math.max(0, config.limit - bucket.count),
+    remaining: Math.max(0, effectiveLimit - bucket.count),
     resetAt: bucket.resetAt,
-    limit: config.limit,
+    limit: effectiveLimit,
   };
 }
 

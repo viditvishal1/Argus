@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FileText, FolderOpen, Plus } from "lucide-react";
+import { FileText, FolderOpen, Pin, Plus } from "lucide-react";
 
 interface Investigation {
   id: string;
@@ -11,14 +11,28 @@ interface Investigation {
   updated_at: string;
 }
 
+interface Evidence {
+  id: number;
+  title: string;
+  url?: string;
+  excerpt?: string;
+  pinned_at: string;
+}
+
 export default function InvestigationsPage() {
   const [items, setItems] = useState<Investigation[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
-  const [detail, setDetail] = useState<{ investigation: Investigation; evidence: unknown[]; notes: { body: string; author: string }[] } | null>(null);
+  const [detail, setDetail] = useState<{ investigation: Investigation; evidence: Evidence[]; notes: { body: string; author: string }[] } | null>(null);
   const [title, setTitle] = useState("");
   const [note, setNote] = useState("");
+  const [evTitle, setEvTitle] = useState("");
+  const [evUrl, setEvUrl] = useState("");
+  const [dbNote, setDbNote] = useState<string | null>(null);
 
-  const load = () => fetch("/api/investigations").then((r) => r.json()).then((d) => setItems(d.investigations ?? []));
+  const load = () => fetch("/api/investigations").then((r) => r.json()).then((d) => {
+    setItems(d.investigations ?? []);
+    if (d.note) setDbNote(d.note);
+  });
 
   useEffect(() => { load(); }, []);
 
@@ -35,6 +49,7 @@ export default function InvestigationsPage() {
       body: JSON.stringify({ title }),
     });
     const d = await res.json();
+    if (d.error) { alert(d.error); return; }
     setTitle("");
     await load();
     if (d.investigation?.id) setSelected(d.investigation.id);
@@ -51,12 +66,29 @@ export default function InvestigationsPage() {
     fetch(`/api/investigations/${selected}`).then((r) => r.json()).then(setDetail);
   };
 
+  const pinEvidence = async () => {
+    if (!selected || !evTitle.trim()) return;
+    await fetch(`/api/investigations/${selected}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "evidence", title: evTitle, url: evUrl || undefined }),
+    });
+    setEvTitle("");
+    setEvUrl("");
+    fetch(`/api/investigations/${selected}`).then((r) => r.json()).then(setDetail);
+  };
+
   const exportReport = async () => {
     if (!detail?.investigation) return;
     const res = await fetch("/api/reports/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: detail.investigation.title, hypothesis: detail.investigation.hypothesis ?? detail.investigation.title }),
+      body: JSON.stringify({
+        title: detail.investigation.title,
+        hypothesis: detail.investigation.hypothesis ?? detail.investigation.title,
+        evidence: detail.evidence,
+        notes: detail.notes,
+      }),
     });
     const blob = await res.blob();
     const a = document.createElement("a");
@@ -70,7 +102,9 @@ export default function InvestigationsPage() {
       <h1 className="mb-1 flex items-center gap-2 text-lg font-semibold text-ink">
         <FolderOpen className="h-5 w-5 text-accent" /> Investigation workspaces
       </h1>
-      <p className="mb-4 text-xs text-ink-dim">Pin evidence, notes, and export cited reports. Requires Supabase service key.</p>
+      <p className="mb-4 text-xs text-ink-dim">
+        Pin evidence, notes, and export cited reports. {dbNote && <span className="text-amber-400">{dbNote}</span>}
+      </p>
 
       <div className="mb-4 flex gap-2">
         <input
@@ -114,6 +148,28 @@ export default function InvestigationsPage() {
               {detail.investigation.hypothesis && (
                 <p className="mb-3 text-xs text-ink-dim">Hypothesis: {detail.investigation.hypothesis}</p>
               )}
+
+              <h3 className="mb-1 flex items-center gap-1 text-xs font-medium text-ink">
+                <Pin className="h-3 w-3" /> Evidence
+              </h3>
+              <div className="mb-3 space-y-1">
+                {detail.evidence.map((e) => (
+                  <div key={e.id} className="rounded bg-panel-2 p-2 text-xs text-ink">
+                    <div className="font-medium">{e.title}</div>
+                    {e.url && <a href={e.url} className="text-accent hover:underline" target="_blank" rel="noreferrer">{e.url}</a>}
+                    <div className="text-ink-dim">Pinned {new Date(e.pinned_at).toLocaleString()}</div>
+                  </div>
+                ))}
+                {detail.evidence.length === 0 && <p className="text-xs text-ink-dim">No evidence pinned yet.</p>}
+              </div>
+              <div className="mb-4 flex flex-col gap-2 sm:flex-row">
+                <input value={evTitle} onChange={(e) => setEvTitle(e.target.value)} placeholder="Evidence title"
+                  className="flex-1 rounded border border-line bg-panel-2 px-2 py-1 text-xs text-ink" />
+                <input value={evUrl} onChange={(e) => setEvUrl(e.target.value)} placeholder="Source URL (optional)"
+                  className="flex-1 rounded border border-line bg-panel-2 px-2 py-1 text-xs text-ink" />
+                <button onClick={pinEvidence} className="rounded bg-panel-2 px-2 py-1 text-xs text-ink">Pin</button>
+              </div>
+
               <h3 className="mb-1 text-xs font-medium text-ink">Notes</h3>
               <div className="mb-3 space-y-1">
                 {detail.notes.map((n, i) => (

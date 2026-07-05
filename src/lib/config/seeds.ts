@@ -43,7 +43,27 @@ export const SEED_MARKET_INSTRUMENTS: MarketInstrumentConfig[] = [
   { id: "eq_tsla", symbol: "TSLA", name: "Tesla", instrument_type: "equity", provider: "yahoo", enabled: true },
 ];
 
-export const SEED_NEWS_COUNTRIES = ["US", "IN", "GB", "AU", "CA", "SG", "AE"] as const;
+export const SEED_NEWS_FEEDS = [
+  { id: "news_bbc_world", source: "BBC World", url: "https://feeds.bbci.co.uk/news/world/rss.xml", tags: ["world"], region: "Global" },
+  { id: "news_the_guardian", source: "The Guardian", url: "https://www.theguardian.com/world/rss", tags: ["world"], region: "Global" },
+  { id: "news_al_jazeera", source: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml", tags: ["world"], region: "Global" },
+  { id: "news_npr", source: "NPR", url: "https://feeds.npr.org/1001/rss.xml", tags: ["world"], region: "US" },
+  { id: "news_techcrunch", source: "TechCrunch", url: "https://techcrunch.com/feed/", tags: ["technology"], region: "Global" },
+  { id: "news_ars_technica", source: "Ars Technica", url: "https://feeds.arstechnica.com/arstechnica/index", tags: ["technology"], region: "Global" },
+  { id: "news_the_verge", source: "The Verge", url: "https://www.theverge.com/rss/index.xml", tags: ["technology"], region: "Global" },
+  { id: "news_the_hindu", source: "The Hindu", url: "https://www.thehindu.com/news/national/feeder/default.rss", tags: ["world"], region: "India" },
+] as const;
+
+export const SEED_NEWS_COUNTRIES = [
+  { code: "US", name: "United States", hl: "en-US", gl: "US", ceid: "US:en" },
+  { code: "IN", name: "India", hl: "en-IN", gl: "IN", ceid: "IN:en" },
+  { code: "GB", name: "United Kingdom", hl: "en-GB", gl: "GB", ceid: "GB:en" },
+  { code: "AU", name: "Australia", hl: "en-AU", gl: "AU", ceid: "AU:en" },
+  { code: "CA", name: "Canada", hl: "en-CA", gl: "CA", ceid: "CA:en" },
+  { code: "SG", name: "Singapore", hl: "en-SG", gl: "SG", ceid: "SG:en" },
+  { code: "AE", name: "UAE", hl: "en-AE", gl: "AE", ceid: "AE:en" },
+] as const;
+
 export const SEED_NEWS_CATEGORIES = ["WORLD", "BUSINESS", "TECHNOLOGY", "SCIENCE", "SPORTS", "HEALTH", "ENTERTAINMENT"] as const;
 
 export const SEED_AVIATION_REGIONS: GeoLocationConfig[] = [

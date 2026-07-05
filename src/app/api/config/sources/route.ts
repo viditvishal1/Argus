@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
-import { getDataSources, getCityPresets, getMarketInstruments } from "@/lib/config/sources";
+import { NextRequest, NextResponse } from "next/server";
+import { getDataSources, getCityPresets, getMarketInstruments, invalidateConfigCache } from "@/lib/config/sources";
+import { updateDataSource } from "@/lib/db/platform";
 import { trackApiRequest } from "@/lib/usage/tracker";
 
 export const dynamic = "force-dynamic";
@@ -29,4 +30,28 @@ export async function GET() {
     instruments,
     fetchedAt: new Date().toISOString(),
   });
+}
+
+export async function PATCH(req: NextRequest) {
+  const secret = process.env.EARTHOS_ADMIN_SECRET;
+  if (!secret) {
+    return NextResponse.json({ error: "EARTHOS_ADMIN_SECRET not configured" }, { status: 503 });
+  }
+  if (req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const id = String(body.id ?? "");
+  if (!id) return NextResponse.json({ error: "id required" }, { status: 400 });
+
+  const ok = await updateDataSource(id, {
+    enabled: body.enabled,
+    priority: body.priority,
+    config_json: body.config_json,
+  });
+  if (!ok) return NextResponse.json({ error: "update failed" }, { status: 500 });
+
+  invalidateConfigCache();
+  return NextResponse.json({ ok: true, id });
 }

@@ -1,24 +1,13 @@
-// News Intelligence connectors — direct outlet RSS feeds (link straight to
-// articles so the in-app reader can extract text) + Google News RSS for
-// query-based search (metadata_only: its links are redirects, so we link out).
+// News Intelligence connectors — config-driven RSS + Google News editions.
 
 import { XMLParser } from "fast-xml-parser";
 import type { Item } from "@/lib/types";
 import { extractEntitiesFromText } from "@/lib/graph";
+import { resolveNewsFeed, listNewsCountries, listNewsCategories } from "@/lib/config/news-config";
+import { SEED_NEWS_FEEDS, SEED_NEWS_COUNTRIES, SEED_NEWS_CATEGORIES } from "@/lib/config/seeds";
 import { fetchWithTimeout, registerConnector } from "./framework";
 
 const parser = new XMLParser({ ignoreAttributes: false });
-
-const FEEDS: { source: string; url: string; tags: string[]; region?: string }[] = [
-  { source: "BBC World", url: "https://feeds.bbci.co.uk/news/world/rss.xml", tags: ["world"], region: "Global" },
-  { source: "The Guardian", url: "https://www.theguardian.com/world/rss", tags: ["world"], region: "Global" },
-  { source: "Al Jazeera", url: "https://www.aljazeera.com/xml/rss/all.xml", tags: ["world"], region: "Global" },
-  { source: "NPR", url: "https://feeds.npr.org/1001/rss.xml", tags: ["world"], region: "US" },
-  { source: "TechCrunch", url: "https://techcrunch.com/feed/", tags: ["technology"], region: "Global" },
-  { source: "Ars Technica", url: "https://feeds.arstechnica.com/arstechnica/index", tags: ["technology"], region: "Global" },
-  { source: "The Verge", url: "https://www.theverge.com/rss/index.xml", tags: ["technology"], region: "Global" },
-  { source: "The Hindu", url: "https://www.thehindu.com/news/national/feeder/default.rss", tags: ["world"], region: "India" },
-];
 
 function stripHtml(html: string): string {
   return html
@@ -56,6 +45,7 @@ async function parseFeed(
   source: string,
   tags: string[],
   region?: string,
+  connectorId?: string,
 ): Promise<Item[]> {
   const res = await fetchWithTimeout(url, { timeoutMs: 9000 });
   if (!res.ok) throw new Error(`${source}: HTTP ${res.status}`);
@@ -64,6 +54,7 @@ async function parseFeed(
   const channel = doc?.rss?.channel ?? doc?.feed;
   let raw: RssItem[] = channel?.item ?? channel?.entry ?? [];
   if (!Array.isArray(raw)) raw = [raw];
+  const cid = connectorId ?? `news_${source.toLowerCase().replace(/\W+/g, "_")}`;
   return raw.slice(0, 20).map((r): Item => {
     const title = stripHtml(text(r.title));
     const link =
@@ -75,7 +66,7 @@ async function parseFeed(
     return {
       id: `news:${source}:${text(r.guid) || link || title}`.slice(0, 200),
       module: "news",
-      connectorId: `news_${source.toLowerCase().replace(/\W+/g, "_")}`,
+      connectorId: cid,
       title,
       summary: desc,
       url: link,
@@ -89,10 +80,10 @@ async function parseFeed(
   });
 }
 
-for (const feed of FEEDS) {
+for (const feed of SEED_NEWS_FEEDS) {
   registerConnector(
     {
-      id: `news_${feed.source.toLowerCase().replace(/\W+/g, "_")}`,
+      id: feed.id,
       module: "news",
       source: feed.source,
       sourceUrl: feed.url,
@@ -100,27 +91,16 @@ for (const feed of FEEDS) {
       contentPolicy: "excerpt_only",
       entityTypes: ["organization", "person", "location"],
     },
-    () => parseFeed(feed.url, feed.source, feed.tags, feed.region),
+    async () => {
+      const cfg = await resolveNewsFeed(feed.id);
+      if (!cfg) return [];
+      return parseFeed(cfg.url, cfg.source, cfg.tags, cfg.region, cfg.id);
+    },
   );
 }
 
-// ---- Google News editions: country-wise headlines + category topic feeds ----
-// These power the country/category filter chips in the News module. Links are
-// Google News redirects, so these are metadata_only (title + link out).
-
-export const NEWS_COUNTRIES = [
-  { code: "US", name: "United States", hl: "en-US", gl: "US", ceid: "US:en" },
-  { code: "IN", name: "India", hl: "en-IN", gl: "IN", ceid: "IN:en" },
-  { code: "GB", name: "United Kingdom", hl: "en-GB", gl: "GB", ceid: "GB:en" },
-  { code: "AU", name: "Australia", hl: "en-AU", gl: "AU", ceid: "AU:en" },
-  { code: "CA", name: "Canada", hl: "en-CA", gl: "CA", ceid: "CA:en" },
-  { code: "SG", name: "Singapore", hl: "en-SG", gl: "SG", ceid: "SG:en" },
-  { code: "AE", name: "UAE", hl: "en-AE", gl: "AE", ceid: "AE:en" },
-];
-
-export const NEWS_CATEGORIES = [
-  "WORLD", "BUSINESS", "TECHNOLOGY", "SCIENCE", "SPORTS", "HEALTH", "ENTERTAINMENT",
-];
+export const NEWS_COUNTRIES = [...SEED_NEWS_COUNTRIES];
+export const NEWS_CATEGORIES = [...SEED_NEWS_CATEGORIES];
 
 function googleNewsItems(
   xml: string,
@@ -151,10 +131,11 @@ function googleNewsItems(
   });
 }
 
-for (const c of NEWS_COUNTRIES) {
+for (const c of SEED_NEWS_COUNTRIES) {
+  const connectorId = `gnews_country_${c.code.toLowerCase()}`;
   registerConnector(
     {
-      id: `gnews_country_${c.code.toLowerCase()}`,
+      id: connectorId,
       module: "news",
       source: `Google News (${c.name})`,
       sourceUrl: "https://news.google.com",
@@ -163,18 +144,21 @@ for (const c of NEWS_COUNTRIES) {
       entityTypes: ["organization", "person", "location"],
     },
     async () => {
-      const url = `https://news.google.com/rss?hl=${c.hl}&gl=${c.gl}&ceid=${encodeURIComponent(c.ceid)}`;
+      const countries = await listNewsCountries();
+      const country = countries.find((x) => x.code === c.code) ?? c;
+      const url = `https://news.google.com/rss?hl=${country.hl}&gl=${country.gl}&ceid=${encodeURIComponent(country.ceid)}`;
       const res = await fetchWithTimeout(url, { timeoutMs: 9000 });
-      if (!res.ok) throw new Error(`Google News ${c.code} HTTP ${res.status}`);
-      return googleNewsItems(await res.text(), `gnews_country_${c.code.toLowerCase()}`, ["headlines"], c.name);
+      if (!res.ok) throw new Error(`Google News ${country.code} HTTP ${res.status}`);
+      return googleNewsItems(await res.text(), connectorId, ["headlines"], country.name);
     },
   );
 }
 
-for (const cat of NEWS_CATEGORIES) {
+for (const cat of SEED_NEWS_CATEGORIES) {
+  const connectorId = `gnews_cat_${cat.toLowerCase()}`;
   registerConnector(
     {
-      id: `gnews_cat_${cat.toLowerCase()}`,
+      id: connectorId,
       module: "news",
       source: `Google News (${cat.charAt(0) + cat.slice(1).toLowerCase()})`,
       sourceUrl: "https://news.google.com",
@@ -183,18 +167,20 @@ for (const cat of NEWS_CATEGORIES) {
       entityTypes: ["organization", "person", "location"],
     },
     async () => {
+      const categories = await listNewsCategories();
+      if (!categories.includes(cat)) return [];
       const url = `https://news.google.com/rss/headlines/section/topic/${cat}?hl=en-US&gl=US&ceid=US:en`;
       const res = await fetchWithTimeout(url, { timeoutMs: 9000 });
       if (!res.ok) throw new Error(`Google News ${cat} HTTP ${res.status}`);
-      return googleNewsItems(await res.text(), `gnews_cat_${cat.toLowerCase()}`, [cat.toLowerCase()], "Global");
+      return googleNewsItems(await res.text(), connectorId, [cat.toLowerCase()], "Global");
     },
   );
 }
 
 export const NEWS_CONNECTOR_IDS = [
-  ...FEEDS.map((f) => `news_${f.source.toLowerCase().replace(/\W+/g, "_")}`),
-  ...NEWS_COUNTRIES.map((c) => `gnews_country_${c.code.toLowerCase()}`),
-  ...NEWS_CATEGORIES.map((c) => `gnews_cat_${c.toLowerCase()}`),
+  ...SEED_NEWS_FEEDS.map((f) => f.id),
+  ...SEED_NEWS_COUNTRIES.map((c) => `gnews_country_${c.code.toLowerCase()}`),
+  ...SEED_NEWS_CATEGORIES.map((c) => `gnews_cat_${c.toLowerCase()}`),
 ];
 
 /** Query-based search via Google News RSS (metadata + link out). */

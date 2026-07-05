@@ -1,52 +1,56 @@
-# EarthOS — Remaining Work (post Phase 2–4 foundation)
+# EarthOS — Remaining Work
 
-## Completed in Phase 2–4 foundation deploy
+## Completed (Phases 0–4 platform pass)
 
-- [x] Entity master, aliases, identifiers, relationships tables
-- [x] Search documents (PostgreSQL FTS fallback)
-- [x] pgvector table scaffold
-- [x] Hybrid search (indexed first, limited live fallback)
-- [x] Citation-grounded research API (`/api/research`)
-- [x] Entity 360 pages (`/entity/[id]`)
-- [x] OpenSearch adapter (optional, env-gated)
-- [x] Admin source config view (`/admin/sources`)
-- [x] Config-driven market instruments
-- [x] GDELT global events connector
-- [x] Viewport map API with clustering
-- [x] TomTom traffic adapter (key-gated)
-- [x] ClickHouse adapter stub
-- [x] Alert engine + `/api/alerts`
-- [x] Investigation workspaces + cited report export
+### Phase 0
+- [x] Audit documentation
+- [x] Connector health `unknown` default + circuit breaker
+- [x] Streets/traffic label accuracy
+- [x] SSRF hardening on `/api/article`
+- [x] Rate limits on search, graph, entity, analyst, article, research
+- [x] Base schema RLS migration (`003_secure_base_rls.sql`)
 
-## Still outstanding
+### Phase 1
+- [x] Config tables + expanded seed (news feeds, countries, categories)
+- [x] News connectors config-driven at collect time
+- [x] R2 archive with `@aws-sdk/client-s3` + gzip batches
+- [x] Ingestion queue writes `ingestion_records` + ontology sync
+- [x] Vercel Cron: `/api/cron/ingest`, `/api/cron/cleanup`
+- [x] Retention cleanup job
+- [x] Admin PATCH `/api/config/sources`
+- [x] Background ingestion auto-enabled with service key
 
-### Auth & multi-tenancy
-- [ ] Supabase Auth integration
-- [ ] Organisation-scoped RLS for authenticated users
-- [ ] Admin write UI for source enable/disable
+### Phase 2
+- [x] Hybrid search indexed-first (live fallback opt-in)
+- [x] Graph API uses persisted ontology when available
+- [x] Analyst uses hybrid search not connector fan-out
+- [x] Entity resolution (ticker, ICAO, MMSI, IMO)
+- [x] Universal command bar entity routing
+- [x] pgvector embedding generator (Gemini)
+- [x] Wikidata enrichment helper
 
-### Search & ontology depth
-- [ ] OpenSearch index pipeline (auto-index on ingest)
-- [ ] pgvector embedding generation (Gemini / local model)
-- [ ] Wikidata auto-enrichment on entity create
-- [ ] Confirmed vs inferred relationship UI
-- [ ] Full entity resolution (ICAO, IMO, tickers)
+### Phase 3
+- [x] City traffic layer UI (TomTom key-gated)
+- [x] Watchlists API
+- [x] Viewport map clustering (existing)
 
-### Live intelligence depth
-- [ ] AISStream global AIS
-- [ ] Historical playback UI
-- [ ] ClickHouse production deployment + writers
-- [ ] Traffic layer UI when TomTom connected
-- [ ] Watchlist-driven map tracking
+### Phase 4
+- [x] Investigation evidence pinning UI
+- [x] Cited report export with evidence + notes
 
-### Operational intelligence depth
-- [ ] Real-time collaboration / comments sync
-- [ ] Workflow assignments
-- [ ] Advanced cross-domain alert rules UI
-- [ ] Anomaly detection models
+## Still requires production configuration
 
-### Infrastructure
-- [ ] Vercel Cron ingestion workers
-- [ ] Partitioned ephemeral tables + auto-drop
-- [ ] R2 SigV4 upload SDK
-- [ ] Supabase Management API size metrics
+1. Link `SUPABASE_SERVICE_KEY` to **argus** Vercel project (not just shared env)
+2. Run migrations `001`, `002`, `003` in Supabase SQL Editor
+3. Seed: `POST /api/usage` with `Authorization: Bearer $EARTHOS_ADMIN_SECRET`
+4. Optional: `TOMTOM_API_KEY`, R2 credentials, Redis, OpenSearch, ClickHouse
+
+## Future enhancements (post-100% foundation)
+
+- Supabase Auth + org-scoped RLS for end users
+- OpenSearch auto-index pipeline on every ingest
+- AISStream global AIS + map layer
+- ClickHouse production deployment + position writers
+- Historical playback UI
+- Real-time investigation collaboration
+- Advanced cross-domain alert rule builder UI

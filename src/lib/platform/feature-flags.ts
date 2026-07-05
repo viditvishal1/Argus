@@ -14,7 +14,7 @@ const DEFAULTS: Record<string, boolean> = {
   investigations: true,
   alert_engine: true,
   gdelt_connector: true,
-  background_ingestion: false,
+  background_ingestion: Boolean(process.env.SUPABASE_SERVICE_KEY),
   strict_rate_limits: true,
 };
 
