@@ -66,7 +66,8 @@ function allowMemoryFallback(): boolean {
 
 function logRedisError(op: string, key: string, err: unknown): void {
   const msg = err instanceof Error ? err.message : String(err);
-  console.error(`[redis] ${op} failed key=${key} error=${msg}`);
+  const safe = msg.length > 120 ? `${msg.slice(0, 120)}…` : msg;
+  console.error(`[redis] ${op} failed key=${key} error=${safe}`);
 }
 
 export async function cacheGet<T>(key: string): Promise<T | null> {
@@ -256,7 +257,9 @@ export async function checkRedisHealth(): Promise<RedisHealth> {
       scheme,
       latencyMs: Date.now() - started,
       lastCheckedAt,
-      errorCategory: err instanceof Error ? err.message : "health_check_failed",
+      errorCategory: err instanceof Error
+        ? (err.message.length > 80 ? "health_check_failed" : err.message)
+        : "health_check_failed",
       productionMode,
       usingMemoryFallback: false,
     };

@@ -39,7 +39,16 @@ describe("redis-config", () => {
     vi.unstubAllEnvs();
   });
 
-  it("never uses read-only KV token", () => {
+  it("falls through to KV when UPSTASH URL is an encrypted blob", () => {
+    vi.stubEnv("UPSTASH_REDIS_REST_URL", "eyJinvalid-encrypted-blob");
+    vi.stubEnv("UPSTASH_REDIS_REST_TOKEN", "token");
+    vi.stubEnv("KV_REST_API_URL", "https://kv.example");
+    vi.stubEnv("KV_REST_API_TOKEN", "kv-token");
+
+    const creds = resolveRedisCredentials();
+    expect(creds.scheme).toBe("vercel-kv");
+    vi.unstubAllEnvs();
+  });
     vi.stubEnv("KV_REST_API_URL", "https://kv.example");
     vi.stubEnv("KV_REST_API_TOKEN", "");
     vi.stubEnv("KV_REST_API_READ_ONLY_TOKEN", "read-only");
