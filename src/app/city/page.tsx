@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { CloudSun, MapPin, Newspaper, Map, Wind, Car } from "lucide-react";
 import type { Item } from "@/lib/types";
 import { MapView, type MapLine } from "@/components/MapView";
+import { MapplsCityMap } from "@/components/MapplsCityMap";
+import { isInIndia } from "@/lib/geo/region";
 import { ItemCard } from "@/components/ModuleView";
 import { ReaderPane } from "@/components/ReaderPane";
 import { IntegrationBadge, integrationDetail } from "@/components/IntegrationBadge";
@@ -22,6 +24,7 @@ type Layer = "weather" | "news" | "streets" | "air" | "traffic";
 
 interface TrafficSegment {
   id?: string;
+  provider?: string;
   roadName?: string;
   currentSpeed: number;
   freeFlowSpeed: number;
@@ -45,13 +48,23 @@ export default function CityPage() {
   const [layer, setLayer] = useState<Layer>("weather");
   const [weather, setWeather] = useState<Weather | null>(null);
   const [news, setNews] = useState<Item[]>([]);
-  const [traffic, setTraffic] = useState<{ enabled: boolean; configured?: boolean; segments: TrafficSegment[]; message?: string } | null>(null);
+  const [traffic, setTraffic] = useState<{
+    enabled: boolean;
+    configured?: boolean;
+    providers?: string[];
+    region?: string;
+    segments: TrafficSegment[];
+    message?: string;
+  } | null>(null);
   const [tomtomState, setTomtomState] = useState<IntegrationState>("key-required");
+  const [mapplsState, setMapplsState] = useState<IntegrationState>("key-required");
   const [selected, setSelected] = useState<Item | null>(null);
   const [globe, setGlobe] = useState(false);
   const [mapZoom, setMapZoom] = useState(11);
 
   const label = place?.city ?? place?.displayName?.split(",")[0] ?? loc.name;
+  const inIndia = isInIndia(loc.lat, loc.lon);
+  const useMapplsMap = inIndia && mapplsState === "ready" && (layer === "streets" || layer === "traffic");
 
   const loadPlace = useCallback((lat: number, lon: number, nameHint?: string) => {
     setLoc({ id: "custom", name: nameHint ?? "Selected", lat, lon });
@@ -91,6 +104,9 @@ export default function CityPage() {
         const tomtom = (d.integrations ?? []).find((i: { id: string }) => i.id === "tomtom");
         if (tomtom?.configured) setTomtomState(tomtom.state ?? "ready");
         else setTomtomState("key-required");
+        const mappls = (d.integrations ?? []).find((i: { id: string }) => i.id === "mappls");
+        if (mappls?.configured) setMapplsState(mappls.state ?? "ready");
+        else setMapplsState("key-required");
       })
       .catch(() => {});
   }, []);
@@ -103,6 +119,9 @@ export default function CityPage() {
       .then(setTraffic)
       .catch(() => setTraffic({ enabled: false, segments: [], message: "Traffic unavailable" }));
   }, [layer, loc.lat, loc.lon]);
+
+  // TomTom/Mappls segment overlay only on MapLibre (Mappls SDK map has built-in traffic).
+  const showTrafficOverlay = layer === "traffic" && !useMapplsMap;
 
   useEffect(() => {
     setWeather(null);
@@ -123,7 +142,7 @@ export default function CityPage() {
 
   // Congestion-colored road polylines for the traffic layer.
   const trafficLines: MapLine[] = useMemo(() => {
-    if (layer !== "traffic" || !traffic?.enabled) return [];
+    if (!showTrafficOverlay || !traffic?.enabled) return [];
     return traffic.segments
       .filter((s) => s.coords && s.coords.length > 1)
       .map((s, i) => {
@@ -136,7 +155,7 @@ export default function CityPage() {
           dashed: false,
         };
       });
-  }, [layer, traffic]);
+  }, [showTrafficOverlay, traffic]);
 
   const gmapsKey = typeof window !== "undefined" ? process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY : undefined;
 
@@ -198,12 +217,15 @@ export default function CityPage() {
           {!traffic && <p className="text-xs text-ink-dim">Loading traffic flow…</p>}
           {traffic && !traffic.enabled && (
             <p className="text-xs text-amber-400/90">
-              {traffic.message ?? "Set TOMTOM_API_KEY for live traffic. Streets layer shows OSM roads only."}
+              {traffic.message ?? "Set MAPPLS_API_KEY (India) and/or TOMTOM_API_KEY for live traffic."}
             </p>
           )}
           {traffic?.enabled && (
             <p className="mb-2 text-[10px] text-emerald-400/90">
-              TomTom traffic flow active · congestion-colored segments on map
+              {useMapplsMap
+                ? "Mappls live traffic on map"
+                : `Active: ${(traffic.providers ?? []).join(" + ") || "traffic"} · congestion-colored segments`}
+              {inIndia && traffic.region === "india" ? " · India" : ""}
             </p>
           )}
           {traffic?.enabled && traffic.segments.length === 0 && (
@@ -220,7 +242,9 @@ export default function CityPage() {
                     <div className={congested ? "text-amber-400" : "text-ink-dim"}>
                       {Math.round(s.currentSpeed)} km/h · free flow {Math.round(s.freeFlowSpeed)} km/h
                     </div>
-                    <div className="text-ink-dim">TomTom · confidence {(s.confidence * 100).toFixed(0)}%</div>
+                    <div className="text-ink-dim">
+                      {(s.provider ?? "TomTom")} · confidence {(s.confidence * 100).toFixed(0)}%
+                    </div>
                   </div>
                 );
               })}
@@ -234,8 +258,10 @@ export default function CityPage() {
         <div className="rounded-lg border border-line bg-panel p-4">
           <h2 className="mb-2 text-sm font-semibold text-ink">Streets — {label}</h2>
           <p className="mb-3 text-xs text-ink-dim">
-            Zoom the map to street level (OpenStreetMap roads). This layer shows streets only — not live traffic.
-            Traffic flow, congestion, and routing require a traffic provider (TomTom or equivalent) in Phase 3.
+            {inIndia && mapplsState === "ready"
+              ? "Mappls India basemap at street level with regional road detail."
+              : "Zoom the map to street level (OpenStreetMap roads). This layer shows streets only — not live traffic."}
+            {inIndia ? " Use Traffic layer for live congestion (Mappls + TomTom when configured)." : ""}
           </p>
           {gmapsKey ? (
             <iframe
@@ -261,13 +287,16 @@ export default function CityPage() {
         </div>
       </>
     );
-  }, [selected, layer, weather, label, news, loc, gmapsKey, traffic]);
+  }, [selected, layer, weather, label, news, loc, gmapsKey, traffic, useMapplsMap, inIndia, mapplsState]);
 
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-3">
         <h1 className="text-lg font-semibold text-ink">City Digital Twin</h1>
-        <p className="text-xs text-ink-dim">Click the map to drop a pin · toggle layers · Streets layer uses OSM at max zoom</p>
+        <p className="text-xs text-ink-dim">
+          Click the map to drop a pin · toggle layers
+          {inIndia ? " · India view uses Mappls when configured" : ""}
+        </p>
       </div>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -303,6 +332,11 @@ export default function CityPage() {
         {layerBtn("streets", <Map className="h-3.5 w-3.5" />, "Streets")}
         {layerBtn("traffic", <Car className="h-3.5 w-3.5" />, "Traffic")}
         <IntegrationBadge
+          label="Mappls"
+          state={mapplsState}
+          detail={integrationDetail(mapplsState, mapplsState !== "key-required")}
+        />
+        <IntegrationBadge
           label="TomTom"
           state={tomtomState}
           detail={integrationDetail(tomtomState, tomtomState !== "key-required")}
@@ -310,18 +344,29 @@ export default function CityPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
-        <MapView
-          layers={[]}
-          lines={trafficLines}
-          pin={place ? { lat: loc.lat, lon: loc.lon, label: label } : null}
-          center={[loc.lon, loc.lat]}
-          zoom={zoom}
-          maxZoom={19}
-          className="h-[58vh] w-full"
-          defaultBasemap={basemap}
-          defaultGlobe={globe}
-          onLocationPick={(lat, lon) => loadPlace(lat, lon)}
-        />
+        {useMapplsMap ? (
+          <MapplsCityMap
+            lat={loc.lat}
+            lon={loc.lon}
+            zoom={zoom}
+            showTraffic={layer === "traffic"}
+            className="h-[58vh] w-full"
+            onLocationPick={(lat, lon) => loadPlace(lat, lon)}
+          />
+        ) : (
+          <MapView
+            layers={[]}
+            lines={trafficLines}
+            pin={place ? { lat: loc.lat, lon: loc.lon, label: label } : null}
+            center={[loc.lon, loc.lat]}
+            zoom={zoom}
+            maxZoom={19}
+            className="h-[58vh] w-full"
+            defaultBasemap={basemap}
+            defaultGlobe={globe}
+            onLocationPick={(lat, lon) => loadPlace(lat, lon)}
+          />
+        )}
         <div className="max-h-[58vh] overflow-y-auto">{sidePanel}</div>
       </div>
     </div>

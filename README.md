@@ -30,6 +30,7 @@ No keys are required to run. Optional keys in `.env.local`:
 | `FRED_API_KEY` | US rates/unemployment series | https://fred.stlouisfed.org/docs/api/api_key.html (free) |
 | `EIA_API_KEY` | WTI/Brent oil spot prices | https://www.eia.gov/opendata/register.php (free) |
 | `TOMTOM_API_KEY` | Live traffic polylines on the City Twin map | https://developer.tomtom.com (free tier) |
+| `MAPPLS_API_KEY` | India Mappls basemap + live traffic on City Twin | https://auth.mappls.com/console |
 
 ## Modules
 

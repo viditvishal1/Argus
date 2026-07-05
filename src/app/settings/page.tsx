@@ -143,7 +143,8 @@ export default function SettingsPage() {
         <p className="mt-3 text-[11px] text-ink-dim">
           Keys are read from Vercel environment variables at runtime. After adding{" "}
           <code className="mono rounded bg-panel-2 px-1">AISHUB_API_KEY</code> or{" "}
-          <code className="mono rounded bg-panel-2 px-1">TOMTOM_API_KEY</code>, redeploy and wait for the live cron seed (~2 min).
+          <code className="mono rounded bg-panel-2 px-1">TOMTOM_API_KEY</code> or{" "}
+          <code className="mono rounded bg-panel-2 px-1">MAPPLS_API_KEY</code>, redeploy and wait for the live cron seed (~2 min).
         </p>
       </section>
 
@@ -175,6 +176,7 @@ export default function SettingsPage() {
             exposed to the browser, never committed): <code className="mono rounded bg-panel-2 px-1">GEMINI_API_KEY</code> for
             AI features, <code className="mono rounded bg-panel-2 px-1">AISHUB_API_KEY</code> for live vessel positions,{" "}
             <code className="mono rounded bg-panel-2 px-1">TOMTOM_API_KEY</code> for City Twin traffic flow,{" "}
+            <code className="mono rounded bg-panel-2 px-1">MAPPLS_API_KEY</code> for India Mappls map/traffic,{" "}
             <code className="mono rounded bg-panel-2 px-1">UPSTASH_REDIS_REST_URL</code> +{" "}
             <code className="mono rounded bg-panel-2 px-1">UPSTASH_REDIS_REST_TOKEN</code> for distributed live cache,{" "}
             <code className="mono rounded bg-panel-2 px-1">CRON_SECRET</code> for scheduled seeding,{" "}

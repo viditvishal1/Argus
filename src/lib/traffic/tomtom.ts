@@ -6,20 +6,15 @@
 // client can draw congestion-colored lines instead of a bare list.
 
 import { fetchWithTimeout } from "@/lib/connectors/framework";
+import type { TrafficBbox, TrafficFlowSegment } from "@/lib/traffic/types";
 
-export interface TrafficFlowSegment {
-  id: string;
-  roadName?: string;
-  lat: number;
-  lon: number;
-  currentSpeed: number;
-  freeFlowSpeed: number;
-  confidence: number;
-  coords: [number, number][]; // [lon, lat] polyline for map rendering
+export function tomtomTrafficEnabled(): boolean {
+  return Boolean(process.env.TOMTOM_API_KEY?.trim());
 }
 
+/** @deprecated use tomtomTrafficEnabled */
 export function trafficEnabled(): boolean {
-  return Boolean(process.env.TOMTOM_API_KEY);
+  return tomtomTrafficEnabled();
 }
 
 async function probe(key: string, lat: number, lon: number): Promise<TrafficFlowSegment | null> {
@@ -37,6 +32,7 @@ async function probe(key: string, lat: number, lon: number): Promise<TrafficFlow
     // First+last coordinate uniquely identify a segment well enough to dedupe
     // overlapping probes.
     id: `tomtom:${coords[0].join(",")}:${coords[coords.length - 1].join(",")}`,
+    provider: "TomTom",
     lat: mid.latitude,
     lon: mid.longitude,
     currentSpeed: seg.currentSpeed ?? 0,
@@ -46,7 +42,7 @@ async function probe(key: string, lat: number, lon: number): Promise<TrafficFlow
   };
 }
 
-export async function fetchTrafficFlow(bbox: { minLat: number; minLon: number; maxLat: number; maxLon: number }): Promise<TrafficFlowSegment[]> {
+export async function fetchTomtomTrafficFlow(bbox: TrafficBbox): Promise<TrafficFlowSegment[]> {
   const key = process.env.TOMTOM_API_KEY;
   if (!key) return [];
 
@@ -69,4 +65,9 @@ export async function fetchTrafficFlow(bbox: { minLat: number; minLon: number; m
     if (seg) byId.set(seg.id, seg);
   }
   return [...byId.values()];
+}
+
+/** @deprecated use fetchTomtomTrafficFlow */
+export async function fetchTrafficFlow(bbox: TrafficBbox): Promise<TrafficFlowSegment[]> {
+  return fetchTomtomTrafficFlow(bbox);
 }

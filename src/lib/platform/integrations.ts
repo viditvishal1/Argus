@@ -30,6 +30,12 @@ export function isTomtomConfigured(): boolean {
   return Boolean(process.env.TOMTOM_API_KEY?.trim());
 }
 
+export function isMapplsConfigured(): boolean {
+  return Boolean(
+    process.env.MAPPLS_API_KEY?.trim() || process.env.MAPMYINDIA_API_KEY?.trim(),
+  );
+}
+
 function shipsState(
   configured: boolean,
   count: number,
@@ -46,6 +52,7 @@ function shipsState(
 export async function buildIntegrationsSnapshot(): Promise<IntegrationStatus[]> {
   const aishubConfigured = isAishubConfigured();
   const tomtomConfigured = isTomtomConfigured();
+  const mapplsConfigured = isMapplsConfigured();
 
   let shipsCount = 0;
   let shipsStale = true;
@@ -83,7 +90,15 @@ export async function buildIntegrationsSnapshot(): Promise<IntegrationStatus[]> 
       label: "TomTom traffic flow",
       configured: tomtomConfigured,
       state: tomtomConfigured ? "ready" : "key-required",
-      coverage: "City Twin traffic layer — congestion-colored road segments",
+      coverage: "City Twin traffic layer — global congestion segments",
+      uiPath: "/city",
+    },
+    {
+      id: "mappls",
+      label: "Mappls India maps & traffic",
+      configured: mapplsConfigured,
+      state: mapplsConfigured ? "ready" : "key-required",
+      coverage: "India basemap + live traffic (MapMyIndia) on City Twin",
       uiPath: "/city",
     },
   ];

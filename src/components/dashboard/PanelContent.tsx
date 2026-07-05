@@ -28,7 +28,7 @@ function ProviderHealthPanel() {
     }).catch(() => {});
   }, []);
 
-  const highlight = new Set(["aishub", "tomtom-traffic", "opensky", "cctv-agencies"]);
+  const highlight = new Set(["aishub", "tomtom-traffic", "mappls-traffic", "opensky", "cctv-agencies"]);
 
   return (
     <div className="space-y-3 text-[11px]">

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { readLiveCached } from "@/lib/live/store";
 import { readModuleLiveCached } from "@/lib/live/module-cache";
 import { readAllSeedMeta } from "@/lib/live/seed-meta";
-import { buildIntegrationsSnapshot, isAishubConfigured, isTomtomConfigured } from "@/lib/platform/integrations";
+import { buildIntegrationsSnapshot, isAishubConfigured, isMapplsConfigured, isTomtomConfigured } from "@/lib/platform/integrations";
 import type { CctvCamera } from "@/lib/live/cctv";
 import {
   BOOTSTRAP_FLIGHT_REGIONS,
@@ -129,6 +129,7 @@ export async function GET() {
     features: {
       aishub: isAishubConfigured(),
       tomtom: isTomtomConfigured(),
+      mappls: isMapplsConfigured(),
     },
     hydratedMs: Date.now() - started,
     fetchedAt: new Date().toISOString(),
