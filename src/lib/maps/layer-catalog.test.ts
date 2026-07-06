@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultLayerToggles, buildMapLayers, LAYER_CATALOG, type LayerData } from "./layer-catalog";
+import { defaultLayerToggles, buildMapLayers, LAYER_CATALOG, LAYER_COUNT, type LayerData } from "./layer-catalog";
 import type { Item } from "@/lib/types";
 
 const item = (id: string): Item => ({
@@ -17,8 +17,9 @@ const item = (id: string): Item => ({
 });
 
 describe("layer catalog", () => {
-  it("has 32 layer types", () => {
-    expect(Object.keys(LAYER_CATALOG).length).toBe(32);
+  it("has 56 layer types", () => {
+    expect(LAYER_COUNT).toBe(56);
+    expect(Object.keys(LAYER_CATALOG).length).toBe(56);
   });
 
   it("builds visible layers from toggles", () => {

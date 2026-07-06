@@ -8,7 +8,25 @@ export type StaticGeoCategory =
   | "chokepoints"
   | "volcanoes"
   | "spaceports"
-  | "refineries";
+  | "refineries"
+  | "dams"
+  | "power_plants"
+  | "military_bases"
+  | "border_crossings"
+  | "rail_hubs"
+  | "observatories"
+  | "datacenters"
+  | "ixps"
+  | "oil_rigs"
+  | "mines"
+  | "weather_radar"
+  | "renewables"
+  | "traffic"
+  | "fishing"
+  | "capitals"
+  | "glaciers"
+  | "wetlands"
+  | "undersea";
 
 export interface StaticGeoPoint {
   id: string;
@@ -105,6 +123,84 @@ export const STATIC_GEO_POINTS: StaticGeoPoint[] = [
   { id: "rf:rotterdam", category: "refineries", name: "Rotterdam refining cluster", lat: 51.886, lon: 4.330, region: "NL" },
   { id: "rf:baytown", category: "refineries", name: "Baytown Refinery", lat: 29.736, lon: -94.977, region: "US" },
   { id: "rf:yaroslavl", category: "refineries", name: "Yaroslavl Refinery", lat: 57.626, lon: 39.884, region: "RU" },
+  // Dams
+  { id: "dm:three_gorges", category: "dams", name: "Three Gorges Dam", lat: 30.823, lon: 111.003, region: "CN" },
+  { id: "dm:itaipu", category: "dams", name: "Itaipu Dam", lat: -25.409, lon: -54.589, region: "BR" },
+  { id: "dm:grand_coulee", category: "dams", name: "Grand Coulee Dam", lat: 47.957, lon: -118.981, region: "US" },
+  { id: "dm:hoover", category: "dams", name: "Hoover Dam", lat: 36.016, lon: -114.738, region: "US" },
+  { id: "dm:aswan", category: "dams", name: "Aswan High Dam", lat: 23.970, lon: 32.878, region: "EG" },
+  // Power plants
+  { id: "pp:taichung", category: "power_plants", name: "Taichung Power Plant", lat: 24.213, lon: 120.483, region: "TW" },
+  { id: "pp:kashima", category: "power_plants", name: "Kashima Power Station", lat: 35.917, lon: 140.650, region: "JP" },
+  { id: "pp:drax", category: "power_plants", name: "Drax Power Station", lat: 53.736, lon: -0.994, region: "GB" },
+  { id: "pp:scherer", category: "power_plants", name: "Robert W Scherer", lat: 33.058, lon: -83.719, region: "US" },
+  // Military bases (open-reference strategic locations)
+  { id: "mb:ramstein", category: "military_bases", name: "Ramstein AB", lat: 49.437, lon: 7.600, region: "DE" },
+  { id: "mb:guam", category: "military_bases", name: "Andersen AFB Guam", lat: 13.584, lon: 144.930, region: "GU" },
+  { id: "mb:diego_garcia", category: "military_bases", name: "Diego Garcia", lat: -7.313, lon: 72.411, region: "IO" },
+  { id: "mb:incirlik", category: "military_bases", name: "Incirlik AB", lat: 37.002, lon: 35.425, region: "TR" },
+  // Border crossings
+  { id: "bx:us_mex_tijuana", category: "border_crossings", name: "San Ysidro crossing", lat: 32.542, lon: -117.029, region: "US" },
+  { id: "bx:eu_calais", category: "border_crossings", name: "Calais–Dover corridor", lat: 50.951, lon: 1.858, region: "FR" },
+  { id: "bx:india_pak_wagah", category: "border_crossings", name: "Wagah crossing", lat: 31.605, lon: 74.572, region: "IN" },
+  // Rail hubs
+  { id: "rh:chicago", category: "rail_hubs", name: "Chicago rail hub", lat: 41.878, lon: -87.640, region: "US" },
+  { id: "rh:rotterdam", category: "rail_hubs", name: "Rotterdam rail port", lat: 51.922, lon: 4.479, region: "NL" },
+  { id: "rh:xi_an", category: "rail_hubs", name: "Xi'an rail hub", lat: 34.341, lon: 108.940, region: "CN" },
+  // Observatories
+  { id: "ob:mauna_kea", category: "observatories", name: "Mauna Kea Observatories", lat: 19.820, lon: -155.468, region: "US" },
+  { id: "ob:paranal", category: "observatories", name: "Paranal Observatory", lat: -24.627, lon: -70.404, region: "CL" },
+  { id: "ob:green_bank", category: "observatories", name: "Green Bank Observatory", lat: 38.431, lon: -79.817, region: "US" },
+  // Datacenters
+  { id: "dc:ashburn", category: "datacenters", name: "Ashburn data center alley", lat: 39.043, lon: -77.487, region: "US" },
+  { id: "dc:frankfurt", category: "datacenters", name: "Frankfurt DE-CIX region", lat: 50.110, lon: 8.682, region: "DE" },
+  { id: "dc:singapore", category: "datacenters", name: "Singapore DC cluster", lat: 1.352, lon: 103.819, region: "SG" },
+  // Internet exchanges
+  { id: "ix:amsix", category: "ixps", name: "AMS-IX Amsterdam", lat: 52.352, lon: 4.941, region: "NL" },
+  { id: "ix:linx", category: "ixps", name: "LINX London", lat: 51.511, lon: -0.006, region: "GB" },
+  { id: "ix:equinix_ashburn", category: "ixps", name: "Equinix Ashburn", lat: 39.018, lon: -77.465, region: "US" },
+  // Oil rigs (offshore fields)
+  { id: "or:north_sea", category: "oil_rigs", name: "North Sea Brent field area", lat: 61.000, lon: 1.500, region: "NO" },
+  { id: "or:gom", category: "oil_rigs", name: "Gulf of Mexico offshore", lat: 28.500, lon: -89.000, region: "US" },
+  { id: "or:campos", category: "oil_rigs", name: "Campos Basin", lat: -22.000, lon: -40.000, region: "BR" },
+  // Mines
+  { id: "mn:escondida", category: "mines", name: "Escondida copper mine", lat: -24.267, lon: -69.067, region: "CL" },
+  { id: "mn:grasberg", category: "mines", name: "Grasberg mine", lat: -4.053, lon: 137.116, region: "ID" },
+  { id: "mn:pilbara", category: "mines", name: "Pilbara iron ore", lat: -22.500, lon: 118.500, region: "AU" },
+  // Weather radar
+  { id: "wr:nexrad_norman", category: "weather_radar", name: "NEXRAD Norman OK", lat: 35.235, lon: -97.462, region: "US" },
+  { id: "wr:dwd_offenbach", category: "weather_radar", name: "DWD Offenbach", lat: 50.100, lon: 8.766, region: "DE" },
+  { id: "wr:imd_delhi", category: "weather_radar", name: "IMD Delhi radar", lat: 28.704, lon: 77.102, region: "IN" },
+  // Renewables
+  { id: "re:gj_belt", category: "renewables", name: "Gansu wind corridor", lat: 40.142, lon: 94.662, region: "CN" },
+  { id: "re:hornsea", category: "renewables", name: "Hornsea Wind Farm", lat: 53.890, lon: 1.790, region: "GB" },
+  { id: "re:noor", category: "renewables", name: "Noor Ouarzazate solar", lat: 31.000, lon: -6.870, region: "MA" },
+  // Traffic probe cities
+  { id: "tr:singapore", category: "traffic", name: "Singapore traffic probe", lat: 1.290, lon: 103.852, region: "SG" },
+  { id: "tr:london", category: "traffic", name: "London traffic probe", lat: 51.507, lon: -0.128, region: "GB" },
+  { id: "tr:la", category: "traffic", name: "Los Angeles traffic probe", lat: 34.052, lon: -118.244, region: "US" },
+  { id: "tr:mumbai", category: "traffic", name: "Mumbai traffic probe", lat: 19.076, lon: 72.878, region: "IN" },
+  // Fishing / EEZ hubs
+  { id: "fi:north_atlantic", category: "fishing", name: "North Atlantic fishing grounds", lat: 55.000, lon: -20.000, region: "Atlantic" },
+  { id: "fi:peru_current", category: "fishing", name: "Peru Current fisheries", lat: -10.000, lon: -80.000, region: "PE" },
+  { id: "fi:tokyo_bay", category: "fishing", name: "Tokyo Bay fisheries", lat: 35.400, lon: 139.800, region: "JP" },
+  // Capitals (strategic)
+  { id: "cp:washington", category: "capitals", name: "Washington DC", lat: 38.907, lon: -77.037, region: "US" },
+  { id: "cp:beijing", category: "capitals", name: "Beijing", lat: 39.904, lon: 116.407, region: "CN" },
+  { id: "cp:brussels", category: "capitals", name: "Brussels", lat: 50.850, lon: 4.352, region: "BE" },
+  { id: "cp:canberra", category: "capitals", name: "Canberra", lat: -35.280, lon: 149.131, region: "AU" },
+  // Glaciers
+  { id: "gl:greenland", category: "glaciers", name: "Greenland ice sheet margin", lat: 72.000, lon: -40.000, region: "GL" },
+  { id: "gl:alps", category: "glaciers", name: "Alps glacier zone", lat: 46.500, lon: 8.000, region: "CH" },
+  { id: "gl:patagonia", category: "glaciers", name: "Patagonian ice fields", lat: -49.000, lon: -73.500, region: "AR" },
+  // Wetlands (RAMSAR sample)
+  { id: "we:everglades", category: "wetlands", name: "Everglades RAMSAR", lat: 25.286, lon: -80.899, region: "US" },
+  { id: "we:sundarbans", category: "wetlands", name: "Sundarbans RAMSAR", lat: 21.950, lon: 89.183, region: "BD" },
+  { id: "we:camargue", category: "wetlands", name: "Camargue RAMSAR", lat: 43.500, lon: 4.500, region: "FR" },
+  // Undersea cable repeaters / nodes
+  { id: "us:marseille_node", category: "undersea", name: "Marseille subsea node", lat: 43.300, lon: 5.400, region: "FR" },
+  { id: "us:guam_node", category: "undersea", name: "GUAM cable hub", lat: 13.444, lon: 144.794, region: "GU" },
+  { id: "us:bude_node", category: "undersea", name: "Bude cable station", lat: 50.829, lon: -4.544, region: "GB" },
 ];
 
 /** Major hub airport coordinates for NOTAM geocoding. */

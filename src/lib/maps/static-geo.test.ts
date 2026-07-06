@@ -6,6 +6,8 @@ describe("static geo", () => {
     expect(STATIC_GEO_POINTS.length).toBeGreaterThan(60);
     expect(pointsByCategory("nuclear").length).toBeGreaterThan(5);
     expect(pointsByCategory("chokepoints").length).toBeGreaterThan(5);
+    expect(pointsByCategory("dams").length).toBeGreaterThan(2);
+    expect(pointsByCategory("datacenters").length).toBeGreaterThan(2);
   });
 
   it("maps hub airports", () => {

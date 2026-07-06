@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { CheckCircle2, KeyRound, Settings as SettingsIcon, XCircle } from "lucide-react";
 import { AlertRuleBuilder } from "@/components/AlertRuleBuilder";
 import { ApiKeysPanel } from "@/components/ApiKeysPanel";
+import { BillingPanel } from "@/components/BillingPanel";
 import { PreferencesPanel } from "@/components/PreferencesPanel";
 import { PushNotifyToggle } from "@/components/PushNotifyToggle";
 import { IntegrationBadge, integrationDetail } from "@/components/IntegrationBadge";
@@ -150,6 +151,11 @@ export default function SettingsPage() {
           <code className="mono rounded bg-panel-2 px-1">TOMTOM_API_KEY</code> or{" "}
           <code className="mono rounded bg-panel-2 px-1">MAPPLS_API_KEY</code>, redeploy and wait for the live cron seed (~2 min).
         </p>
+      </section>
+
+      <section className="mb-5 rounded-lg border border-line bg-panel p-4">
+        <h2 className="mb-3 text-sm font-medium text-ink">Billing</h2>
+        <BillingPanel />
       </section>
 
       <section className="mb-5 rounded-lg border border-line bg-panel p-4">

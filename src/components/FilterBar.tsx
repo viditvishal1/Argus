@@ -10,6 +10,7 @@ import { useCallback, useMemo, useState } from "react";
 import { ChevronDown, RotateCcw, Save } from "lucide-react";
 import type { Item } from "@/lib/types";
 import { deletePreset, getPresets, savePreset, type FilterPreset } from "@/lib/saved";
+import { useLocale } from "@/lib/i18n/useLocale";
 
 export interface FilterState {
   q: string;
@@ -97,6 +98,7 @@ export function FilterBar({ items, module }: { items: Item[]; module: string }) 
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
+  const { t } = useLocale();
   const filters = readFilters(new URLSearchParams(sp.toString()));
   const [presets, setPresets] = useState<FilterPreset[]>(() => getPresets(module));
 
@@ -131,7 +133,7 @@ export function FilterBar({ items, module }: { items: Item[]; module: string }) 
       <input
         value={filters.q}
         onChange={(e) => set({ q: e.target.value })}
-        placeholder="Filter…"
+        placeholder={t("filter.placeholder")}
         aria-label="Filter text"
         className="w-40 rounded-md border border-line bg-panel px-2.5 py-1.5 text-xs text-ink placeholder:text-ink-dim focus:border-accent focus:outline-none"
       />
@@ -166,7 +168,7 @@ export function FilterBar({ items, module }: { items: Item[]; module: string }) 
           onClick={() => set({ q: "", sources: [], tags: [], regions: [], minSeverity: 0, rangeHours: 0 })}
           className="flex items-center gap-1 rounded-md border border-line px-2 py-1.5 text-xs text-ink-dim hover:text-ink"
         >
-          <RotateCcw className="h-3 w-3" /> Reset
+          <RotateCcw className="h-3 w-3" /> {t("filter.reset")}
         </button>
       ) : null}
 

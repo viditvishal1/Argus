@@ -15,7 +15,14 @@ const EMPTY_LAYERS: LayerData = {
   nuclear: [], pipelines: [], cables: [], ports: [], chokepoints: [], volcanoes: [],
   spaceports: [], refineries: [], outages: [], airports: [], notams: [], outbreaks: [],
   energy: [], patents: [], startups: [], gdelt: [],
+  dams: [], power_plants: [], military_bases: [], border_crossings: [], rail_hubs: [],
+  observatories: [], datacenters: [], ixps: [], oil_rigs: [], mines: [], weather_radar: [],
+  renewables: [], traffic: [], fishing: [], capitals: [], glaciers: [], wetlands: [],
+  undersea: [], humanitarian: [], space_weather: [], launches: [], kev: [], disasters: [],
+  protests: [],
 };
+
+const SWPC_BOULDER = { lat: 40.13, lon: -105.24 };
 
 function geoItems(items: Item[]): Item[] {
   return items.filter((i) => typeof i.lat === "number" && typeof i.lon === "number");
@@ -193,6 +200,37 @@ export function useGlobeLiveData(region = "global") {
       patents: govItems.filter((i) => i.connectorId === "patentsview_recent"),
       startups: startupItems,
       gdelt: newsItems.filter((i) => i.connectorId === "gdelt_events" || i.tags.includes("gdelt")),
+      dams: staticLayer(earthItems, "dams"),
+      power_plants: staticLayer(earthItems, "power_plants"),
+      military_bases: staticLayer(earthItems, "military_bases"),
+      border_crossings: staticLayer(earthItems, "border_crossings"),
+      rail_hubs: staticLayer(earthItems, "rail_hubs"),
+      observatories: staticLayer(earthItems, "observatories"),
+      datacenters: staticLayer(earthItems, "datacenters"),
+      ixps: staticLayer(earthItems, "ixps"),
+      oil_rigs: staticLayer(earthItems, "oil_rigs"),
+      mines: staticLayer(earthItems, "mines"),
+      weather_radar: staticLayer(earthItems, "weather_radar"),
+      renewables: staticLayer(earthItems, "renewables"),
+      traffic: staticLayer(earthItems, "traffic"),
+      fishing: staticLayer(earthItems, "fishing"),
+      capitals: staticLayer(earthItems, "capitals"),
+      glaciers: staticLayer(earthItems, "glaciers"),
+      wetlands: staticLayer(earthItems, "wetlands"),
+      undersea: staticLayer(earthItems, "undersea"),
+      humanitarian: conflictItems.filter((i) => i.tags.includes("humanitarian")),
+      space_weather: spaceItems
+        .filter((i) => i.connectorId === "noaa_swpc_alerts")
+        .map((i) => ({ ...i, lat: SWPC_BOULDER.lat, lon: SWPC_BOULDER.lon })),
+      launches: spaceItems.filter((i) => i.connectorId === "spacedevs_launches"),
+      kev: cyberItems.filter((i) => i.connectorId === "cisa_kev"),
+      disasters: [
+        ...quakeItems.filter((i) => (i.severity ?? 0) >= 6),
+        ...conflictItems.filter((i) => i.tags.includes("humanitarian")),
+      ],
+      protests: newsItems.filter((i) =>
+        /protest|demonstrat|riot|unrest/i.test(i.title) || i.tags.includes("protest"),
+      ),
     });
 
     setFlights(data.flights?.global ?? []);

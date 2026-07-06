@@ -1,12 +1,22 @@
 # Gap Matrix Status (vs PRD)
 
-Last updated: 2026-07-06 (batch 3).
+Last updated: 2026-07-06 (batch 4).
+
+## Closed in batch 4
+
+| ID | Item | Status |
+|----|------|--------|
+| G03 | Map layers | **56 layers** — static geo expanded (dams, power, military, borders, rail, observatories, DCs, IXPs, rigs, mines, radar, renewables, traffic, fishing, capitals, glaciers, wetlands, undersea) + humanitarian, space weather, launches, KEV, disasters, protests |
+| G39 | i18n | Partial — module loading/empty/error, filter bar, billing settings keys (en/hi/ar) |
+| G47 | Billing checkout | Stripe Checkout session API + BillingPanel in settings |
+| G08–G12 | Domain depth | Partial — space weather, KEV, protests, disasters layers wired from live feeds |
+| G41 | Tauri desktop | CSP tightened for remote app shell |
 
 ## Closed in batch 3
 
 | ID | Item | Status |
 |----|------|--------|
-| G03 | Map layers | **32 layers** — static geo (nuclear, pipelines, cables, ports, chokepoints, volcanoes, spaceports, refineries) + domain layers |
+| G03 | Map layers | **32 layers** — static geo + domain layers |
 | G08 | Aviation depth | Partial — NOTAM geocoding + major airport hub layer |
 | G10 | Health/outbreaks | Partial — WHO DON connector + outbreaks layer |
 | G13 | Conflict/health | Partial — outbreaks on map |
@@ -30,12 +40,10 @@ Last updated: 2026-07-06 (batch 3).
 
 | ID | Item | Notes |
 |----|------|-------|
-| G03 | 56 map layers | 32/56 — add Natural Earth overlays, traffic, radar, etc. |
-| G08–G12 | Remaining domain depth | Maritime AIS depth, space weather, etc. |
-| G39 | Full UI i18n | Module pages still English |
-| G41 | Tauri release | Scaffold only — needs signed builds |
-| G47 | Billing checkout | Webhook stub only — needs Stripe Checkout UI |
+| G39 | Full UI i18n | Reader pane, settings sections, filter labels still English |
+| G41 | Tauri release | Needs signed/notarized builds + CI |
+| G08–G12 | Remaining domain depth | Maritime AIS depth, vector overlays (Natural Earth), live traffic/radar feeds |
 
 ## Migrations
 
-Run through `012_billing.sql` in Supabase.
+Run through `012_billing.sql` in Supabase. Set `STRIPE_SECRET_KEY`, `STRIPE_PRICE_ID`, and `STRIPE_WEBHOOK_SECRET` for billing.

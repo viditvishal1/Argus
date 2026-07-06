@@ -29,7 +29,15 @@ const en: Record<string, string> = {
   "settings.title": "Settings",
   "settings.personalization": "Personalization",
   "settings.notifications": "Notifications",
+  "settings.billing": "Billing",
   "layers.title": "Layers",
+  "module.loading": "Reading from cache…",
+  "module.empty": "No items match filters",
+  "module.error": "Load failed",
+  "filter.search": "Search",
+  "filter.reset": "Reset",
+  "filter.placeholder": "Filter…",
+  "module.emptyFilters": "No items match the current filters.",
 };
 
 const hi: Record<string, string> = {
@@ -61,7 +69,15 @@ const hi: Record<string, string> = {
   "settings.title": "सेटिंग्स",
   "settings.personalization": "वैयक्तिकरण",
   "settings.notifications": "सूचनाएं",
+  "settings.billing": "बिलिंग",
   "layers.title": "परतें",
+  "module.loading": "कैश से पढ़ रहे हैं…",
+  "module.empty": "कोई आइटम फ़िल्टर से मेल नहीं खाता",
+  "module.error": "लोड विफल",
+  "filter.search": "खोजें",
+  "filter.reset": "रीसेट",
+  "filter.placeholder": "फ़िल्टर…",
+  "module.emptyFilters": "कोई आइटम फ़िल्टर से मेल नहीं खाता।",
 };
 
 const ar: Record<string, string> = {
@@ -93,7 +109,15 @@ const ar: Record<string, string> = {
   "settings.title": "الإعدادات",
   "settings.personalization": "التخصيص",
   "settings.notifications": "الإشعارات",
+  "settings.billing": "الفوترة",
   "layers.title": "الطبقات",
+  "module.loading": "جارٍ القراءة من ذاكرة التخزين المؤقت…",
+  "module.empty": "لا توجد عناصر مطابقة",
+  "module.error": "فشل التحميل",
+  "filter.search": "بحث",
+  "filter.reset": "إعادة تعيين",
+  "filter.placeholder": "تصفية…",
+  "module.emptyFilters": "لا توجد عناصر مطابقة للفلاتر الحالية.",
 };
 
 const catalogs: Record<LocaleId, Record<string, string>> = { en, hi, ar };

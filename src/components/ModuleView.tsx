@@ -11,6 +11,7 @@ import type { Item } from "@/lib/types";
 import { applyFilters, FilterBar, readFilters } from "@/components/FilterBar";
 import { ReaderPane } from "@/components/ReaderPane";
 import { Skeleton } from "@/components/Skeleton";
+import { useLocale } from "@/lib/i18n/useLocale";
 
 export function ItemCard({
   item, selected, onSelect, highlight,
@@ -73,16 +74,17 @@ function ModuleViewInner({
   const [error, setError] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const sp = useSearchParams();
+  const { t } = useLocale();
 
   const load = useCallback(() => {
     fetch(`/api/modules/${module}`)
       .then((r) => r.json())
       .then((d) => {
         if (d.items) { setItems(d.items); setFetchedAt(d.fetchedAt); setError(null); }
-        else setError(d.error ?? "load failed");
+        else setError(d.error ?? t("module.error"));
       })
       .catch((e) => setError(String(e)));
-  }, [module]);
+  }, [module, t]);
 
   useEffect(() => {
     load();
@@ -123,7 +125,7 @@ function ModuleViewInner({
       {!items && !error ? (
         <div className="py-6">
           <Skeleton rows={6} />
-          <p className="mt-3 text-[11px] text-ink-dim">Reading from cache…</p>
+          <p className="mt-3 text-[11px] text-ink-dim">{t("module.loading")}</p>
         </div>
       ) : (
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
@@ -140,7 +142,7 @@ function ModuleViewInner({
             ))}
             {filtered.length === 0 && items && (
               <div className="py-8 text-center text-xs text-ink-dim">
-                No items match the current filters.
+                {t("module.emptyFilters")}
               </div>
             )}
           </div>
